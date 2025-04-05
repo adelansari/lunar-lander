@@ -7,11 +7,9 @@ interface EndScreenProps {
 
 const EndScreen: React.FC<EndScreenProps> = ({ message, onRestart }) => {
   return (
-    <div className="end-screen">
+    <div className="end-screen" style={{ opacity: 1, pointerEvents: 'all' }}>
       <h2 className="end-message">{message}</h2>
-      <button className="start-btn" onClick={onRestart}>
-        TRY AGAIN
-      </button>
+      <button className="start-btn" onClick={onRestart}>TRY AGAIN</button>
     </div>
   )
 }

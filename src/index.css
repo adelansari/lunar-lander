@@ -30,9 +30,12 @@ body {
   position: relative;
   width: 100%;
   height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
-/* UI Panels */
+/* Game UI overlay */
 .game-ui {
   position: absolute;
   top: 0;
@@ -72,14 +75,104 @@ body {
   transition: width 0.3s ease;
 }
 
-/* Start Screen */
-.start-screen {
+/* Angle Indicator */
+.angle-indicator {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 240px;
+  height: 60px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.angle-meter {
+  position: relative;
+  width: 200px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  margin-bottom: 5px;
+  overflow: hidden;
+}
+
+.safe-zone {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 100%;
+  background: rgba(0, 255, 0, 0.3);
+}
+
+.warning-zone {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 100%;
+  background: rgba(255, 255, 0, 0.1);
+}
+
+.angle-pointer {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 100%;
+  background: white;
+  transition: transform 0.1s ease;
+}
+
+.angle-status {
+  display: flex;
+  width: 200px;
+  justify-content: space-between;
+  margin-top: 5px;
+  font-size: 0.8rem;
+}
+
+.angle-value {
+  font-weight: bold;
+  color: white;
+}
+
+.angle-warning {
+  font-weight: bold;
+  color: yellow;
+}
+
+.angle-danger {
+  font-weight: bold;
+  color: red;
+}
+
+.angle-perfect {
+  font-weight: bold;
+  color: lime;
+}
+
+/* Start Screen, End Screen, Instructions */
+.start-screen,
+.end-screen,
+.instructions {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0,0,0,0.8);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -117,6 +210,60 @@ body {
   font-family: 'Orbitron', sans-serif;
   font-weight: bold;
   box-shadow: 0 4px 15px var(--shadow);
+  margin: 0.5rem;
+}
+
+.start-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(37, 117, 252, 0.6);
+}
+
+.end-message {
+  font-size: 2.5rem;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.landing-score {
+  font-size: 1.5rem;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.crash {
+  color: var(--danger-color);
+}
+
+.success {
+  color: var(--success-color);
+}
+
+.instructions {
+  padding: 2rem;
+  border-radius: 10px;
+  max-width: 500px;
+  text-align: center;
+  z-index: 30;
+  display: none;
+}
+
+.instructions h2 {
+  margin-bottom: 1rem;
+  color: var(--secondary-color);
+}
+
+.instructions p {
+  margin-bottom: 0.5rem;
+}
+
+.close-btn {
+  margin-top: 1rem;
+  background: var(--secondary-color);
+  border: none;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
 }
 
 .help-btn {
@@ -134,77 +281,7 @@ body {
   z-index: 20;
 }
 
-/* Angle Indicator */
-.angle-indicator {
-  position: absolute;
-  top: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 240px;
-  height: 60px;
-  background: rgba(0, 0, 0, 0.7);
-  border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  z-index: 10;
-  pointer-events: none;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.angle-meter {
-  position: relative;
-  width: 200px;
-  height: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  margin-bottom: 5px;
-  overflow: hidden;
-}
-
-.warning-zone,
-.safe-zone {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  height: 100%;
-}
-
-.safe-zone {
-  width: 60px;
-  background: rgba(0, 255, 0, 0.3);
-}
-
-.warning-zone {
-  width: 120px;
-  background: rgba(255, 255, 0, 0.1);
-}
-
-.angle-pointer {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 4px;
-  height: 100%;
-  background: white;
-  transition: transform 0.1s ease;
-}
-
-.angle-status {
-  display: flex;
-  width: 200px;
-  justify-content: space-between;
-  font-size: 0.8rem;
-}
-
-.angle-value {
-  font-weight: bold;
-}
-
-/* Controls */
+/* On-screen Controls */
 .controls {
   position: absolute;
   bottom: 20px;
@@ -216,7 +293,7 @@ body {
 }
 
 .control-btn {
-  background: rgba(255,255,255,0.15);
+  background: rgba(255, 255, 255, 0.15);
   color: white;
   border: none;
   width: 60px;
@@ -234,7 +311,7 @@ body {
 
 .control-btn:active {
   transform: scale(0.95);
-  background: rgba(255,255,255,0.3);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .control-btn.left {
@@ -243,28 +320,4 @@ body {
 
 .control-btn.right {
   transform: rotate(90deg);
-}
-
-/* Instructions Modal */
-.instructions {
-  padding: 2rem;
-  border-radius: 10px;
-  max-width: 500px;
-  text-align: center;
-}
-.close-btn {
-  margin-top: 1rem;
-  background: var(--secondary-color);
-  border: none;
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 5px;
-  cursor: pointer;
-}
-  
-/* End Screen */
-.end-message {
-  font-size: 2.5rem;
-  margin-bottom: 2rem;
-  text-align: center;
 }

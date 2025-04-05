@@ -6,7 +6,7 @@ interface InstructionsProps {
 
 const Instructions: React.FC<InstructionsProps> = ({ onClose }) => {
   return (
-    <div className="instructions">
+    <div className="instructions" style={{ display: 'block' }}>
       <h2>Lunar Lander Instructions</h2>
       <p><strong>Objective:</strong> Land safely on the moon's surface at a speed below 5m/s.</p>
       <p><strong>Controls:</strong></p>
@@ -18,9 +18,7 @@ const Instructions: React.FC<InstructionsProps> = ({ onClose }) => {
       <p>• Angle within ±10° (Upright position)</p>
       <p>• Land on the marked platform</p>
       <p><strong>Note:</strong> Each thruster burst uses fuel. When you run out, you have no control!</p>
-      <button className="close-btn" onClick={onClose}>
-        UNDERSTOOD
-      </button>
+      <button className="close-btn" onClick={onClose}>UNDERSTOOD</button>
     </div>
   )
 }

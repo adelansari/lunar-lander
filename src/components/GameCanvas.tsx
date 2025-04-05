@@ -1,10 +1,12 @@
 import React, { useEffect, useRef } from 'react'
+import { GameStats } from '../App'
 
-interface GameProps {
+interface GameCanvasProps {
+  onUpdateStats: (stats: GameStats) => void
   onGameOver: (message: string) => void
 }
 
-const Game: React.FC<GameProps> = ({ onGameOver }) => {
+const GameCanvas: React.FC<GameCanvasProps> = ({ onUpdateStats, onGameOver }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -13,7 +15,7 @@ const Game: React.FC<GameProps> = ({ onGameOver }) => {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Declare all variables first
+    // Initialize game variables
     let stars: { x: number; y: number; size: number }[] = []
     let terrain: { x: number; y: number }[] = []
     let landingZone = { x: 0, y: 0, width: 100 }
@@ -39,8 +41,9 @@ const Game: React.FC<GameProps> = ({ onGameOver }) => {
       landed: false
     }
 
-    // Define functions before calling them
+    // Define helper functions before usage
     const generateTerrain = () => {
+      terrain = []
       const segments = 20
       const segWidth = canvas.width / segments
       let prevHeight = canvas.height * 0.7
@@ -80,18 +83,6 @@ const Game: React.FC<GameProps> = ({ onGameOver }) => {
       lander.landed = false
     }
 
-    // Now define resizeCanvas using the functions above
-    const resizeCanvas = () => {
-      canvas.width = window.innerWidth
-      canvas.height = window.innerHeight
-      terrain = []
-      generateTerrain()
-      resetLander()
-    }
-    resizeCanvas()
-    window.addEventListener('resize', resizeCanvas)
-
-    // Create stars
     const createStars = () => {
       stars = []
       for (let i = 0; i < 100; i++) {
@@ -102,7 +93,18 @@ const Game: React.FC<GameProps> = ({ onGameOver }) => {
         })
       }
     }
-    createStars()
+
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+      generateTerrain()
+      resetLander()
+      createStars()
+    }
+
+    // Setup initial canvas size
+    resizeCanvas()
+    window.addEventListener('resize', resizeCanvas)
 
     // Keyboard event listeners
     const handleKeyDown = (e: KeyboardEvent) => { keys[e.key] = true }
@@ -110,7 +112,25 @@ const Game: React.FC<GameProps> = ({ onGameOver }) => {
     document.addEventListener('keydown', handleKeyDown)
     document.addEventListener('keyup', handleKeyUp)
 
-    // Collision detection function
+    // Update UI stats (altitude, velocity, fuel, angle)
+    const updateStats = () => {
+      let minAltitude = Infinity
+      for (let i = 0; i < terrain.length; i++) {
+        const dist = Math.hypot(lander.x - terrain[i].x, lander.y - terrain[i].y)
+        if (dist < minAltitude) {
+          minAltitude = dist
+        }
+      }
+      const velocity = Math.hypot(lander.velocityX, lander.velocityY)
+      onUpdateStats({
+        altitude: Math.floor(minAltitude),
+        velocity,
+        fuel: lander.fuel,
+        angle: Math.round(lander.angle * (180 / Math.PI))
+      })
+    }
+
+    // Collision detection (using linear interpolation along terrain segments)
     const checkCollision = () => {
       for (let i = 0; i < terrain.length - 1; i++) {
         const seg = terrain[i]
@@ -120,7 +140,7 @@ const Game: React.FC<GameProps> = ({ onGameOver }) => {
         const terrainY = seg.y + t * (nextSeg.y - seg.y)
         if (lander.y + lander.height / 2 >= terrainY) {
           const inZone = lander.x >= landingZone.x && lander.x <= landingZone.x + landingZone.width
-          const velocity = Math.sqrt(lander.velocityX ** 2 + lander.velocityY ** 2)
+          const velocity = Math.hypot(lander.velocityX, lander.velocityY)
           const angleDegrees = Math.abs(lander.angle * (180 / Math.PI))
           if (inZone && velocity < 5 && angleDegrees < 10) {
             lander.landed = true
@@ -140,6 +160,7 @@ const Game: React.FC<GameProps> = ({ onGameOver }) => {
       beaconPulse = (beaconPulse + 0.02) % (Math.PI * 2)
       if (lander.crashed || lander.landed) return
 
+      // Handle rotation input
       if (keys['ArrowLeft'] || keys['a']) {
         lander.rotationSpeed = -rotationThrust
       } else if (keys['ArrowRight'] || keys['d']) {
@@ -147,6 +168,7 @@ const Game: React.FC<GameProps> = ({ onGameOver }) => {
       } else {
         lander.rotationSpeed = 0
       }
+      // Handle thrust input
       lander.thrusting = false
       if ((keys['ArrowUp'] || keys['w']) && lander.fuel > 0) {
         lander.thrusting = true
@@ -157,10 +179,12 @@ const Game: React.FC<GameProps> = ({ onGameOver }) => {
         lander.velocityX += thrustX
         lander.velocityY += thrustY
       }
+      // Update angle (normalize to -π .. π)
       lander.angle += lander.rotationSpeed * delta
       if (lander.angle < -Math.PI) lander.angle = 2 * Math.PI + lander.angle
       else if (lander.angle >= Math.PI) lander.angle = lander.angle - 2 * Math.PI
 
+      // Apply gravity and update position
       lander.velocityY += gravity * delta
       lander.x += lander.velocityX * delta
       lander.y += lander.velocityY * delta
@@ -168,6 +192,7 @@ const Game: React.FC<GameProps> = ({ onGameOver }) => {
       else if (lander.x > canvas.width) { lander.x = canvas.width; lander.velocityX *= -0.5 }
 
       checkCollision()
+      updateStats()
     }
 
     // Draw everything on the canvas
@@ -238,9 +263,43 @@ const Game: React.FC<GameProps> = ({ onGameOver }) => {
         ctx.fill()
       }
       ctx.restore()
+      // Draw altitude marker (only if still flying)
+      if (!lander.landed && !lander.crashed) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
+        ctx.strokeStyle = 'white'
+        ctx.beginPath()
+        ctx.arc(lander.x, canvas.height * 0.7, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+
+        ctx.beginPath()
+        ctx.moveTo(lander.x, canvas.height * 0.7 + 5)
+        ctx.lineTo(lander.x, lander.y - lander.height / 2 - 5)
+        ctx.setLineDash([5, 3])
+        ctx.stroke()
+        ctx.setLineDash([])
+      }
+      // Draw distance indicator if far from landing zone
+      const landingCenterY = landingZone.y
+      if (Math.abs(lander.x - landingCenterX) > 200 || lander.y < landingCenterY - 300) {
+        const arrowX = lander.x > landingCenterX ? canvas.width - 20 : 20
+        const arrowDir = lander.x > landingCenterX ? -1 : 1
+        ctx.font = '12px Orbitron'
+        ctx.fillStyle = '#00ff64'
+        ctx.fillText('LAND HERE', arrowX + (arrowDir * 30), 50)
+        ctx.beginPath()
+        ctx.moveTo(arrowX, 40)
+        ctx.lineTo(arrowX + (arrowDir * 15), 50)
+        ctx.lineTo(arrowX, 60)
+        ctx.lineWidth = 2
+        ctx.strokeStyle = '#00ff64'
+        ctx.stroke()
+        const distance = Math.floor(Math.hypot(lander.x - landingCenterX, lander.y - landingCenterY))
+        ctx.fillText(`${distance}m`, arrowX + (arrowDir * 30), 70)
+      }
     }
 
-    // Main game loop
+    // Main game loop stops once the mission ends
     const gameLoop = (timestamp: number) => {
       if (!lastTime) lastTime = timestamp
       const delta = timestamp - lastTime
@@ -251,6 +310,7 @@ const Game: React.FC<GameProps> = ({ onGameOver }) => {
         requestAnimationFrame(gameLoop)
       }
     }
+
     requestAnimationFrame(gameLoop)
 
     return () => {
@@ -258,9 +318,9 @@ const Game: React.FC<GameProps> = ({ onGameOver }) => {
       document.removeEventListener('keydown', handleKeyDown)
       document.removeEventListener('keyup', handleKeyUp)
     }
-  }, [onGameOver])
+  }, [onGameOver, onUpdateStats])
 
   return <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0 }} />
 }
 
-export default Game
+export default GameCanvas
