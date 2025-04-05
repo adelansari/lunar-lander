@@ -15,7 +15,7 @@ const GameCanvas = ({ setGameStatus }: { setGameStatus: (status: GameStatus) => 
     const [terrain, setTerrain] = useState<TerrainPoint[]>([]);
     const [landingZone, setLandingZone] = useState<LandingZone>({ x: 0, y: 0, width: 80 });
     const [keys, setKeys] = useState<{ [key: string]: boolean }>({});
-    const animationRef = useRef<number>();
+    const animationRef = useRef<number | undefined>(undefined);
     const lastTime = useRef<number>(0);
     const beaconPulse = useRef<number>(0);
 
@@ -215,7 +215,9 @@ const GameCanvas = ({ setGameStatus }: { setGameStatus: (status: GameStatus) => 
         <>
             <canvas ref={canvasRef} />
             <GameUI lander={lander} landingZone={landingZone} />
-            <TouchControls onControl={(key, pressed) => setKeys(k => ({ ...k, [key]: pressed })} />
+            <TouchControls 
+                onControl={(key: string, pressed: boolean) => setKeys(k => ({ ...k, [key]: pressed }))} 
+            />
         </>
     );
 };

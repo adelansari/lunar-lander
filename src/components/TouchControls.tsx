@@ -1,6 +1,10 @@
-const TouchControls = ({ onControl }: {
-    onControl: (key: string, pressed: boolean) => void
-}) => {
+import { FC } from 'react';
+
+interface TouchControlsProps {
+    onControl: (key: string, pressed: boolean) => void;
+}
+
+const TouchControls: FC<TouchControlsProps> = ({ onControl }) => {
     return (
         <div className="controls">
             <button

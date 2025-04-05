@@ -8,4 +8,4 @@ export const GAME_CONSTANTS = {
     TERRAIN_SEGMENTS: 20,
     LANDING_ZONE_WIDTH: 100,
     STAR_COUNT: 100,
-};
+} as const;
