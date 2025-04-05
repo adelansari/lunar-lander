@@ -1,9 +1,10 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import type { Lander, TerrainPoint, LandingZone, KeysState } from '../types/game';
 
 export const useLander = (terrain: TerrainPoint[], landingZone: LandingZone) => {
   // Server-side rendering check
   const [isClient, setIsClient] = useState(false);
+  const initialized = useRef(false);
   
   useEffect(() => {
     setIsClient(true);
@@ -49,22 +50,26 @@ export const useLander = (terrain: TerrainPoint[], landingZone: LandingZone) => 
       crashed: false,
       landed: false
     });
+    
+    initialized.current = true;
   }, [isClient]);
 
   // Update lander position and physics
   const updateLander = useCallback((delta: number, keys: KeysState) => {
-    if (!isClient) return;
+    if (!isClient || !initialized.current) return;
     
     setLander(prev => {
       // Skip if crashed or landed
       if (prev.crashed || prev.landed) return prev;
 
-      // Apply rotation controls
+      // Apply rotation controls (no auto-stabilization)
       let rotationSpeed = 0;
       if (keys['ArrowLeft'] || keys['a']) {
         rotationSpeed = -rotationThrust;
       } else if (keys['ArrowRight'] || keys['d']) {
         rotationSpeed = rotationThrust;
+      } else {
+        rotationSpeed = 0;
       }
 
       // Calculate new angle
@@ -130,7 +135,7 @@ export const useLander = (terrain: TerrainPoint[], landingZone: LandingZone) => 
 
   // Check for collision with terrain
   const checkCollision = useCallback(() => {
-    if (!isClient || terrain.length === 0) return false;
+    if (!isClient || !initialized.current || terrain.length === 0) return false;
     
     // Check if lander is below terrain at any point
     for (let i = 0; i < terrain.length - 1; i++) {
@@ -168,7 +173,7 @@ export const useLander = (terrain: TerrainPoint[], landingZone: LandingZone) => 
       }
     }
     return false;
-  }, [isClient, lander, terrain, landingZone]);
+  }, [isClient, terrain, landingZone, lander]);
 
   return { lander, resetLander, updateLander, checkCollision };
 }; 

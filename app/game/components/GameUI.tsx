@@ -1,30 +1,48 @@
 import { useEffect, useState } from 'react';
-import type { Lander } from '../types/game';
+import type { Lander, TerrainPoint } from '../types/game';
 
 interface GameUIProps {
   lander: Lander;
+  terrain: TerrainPoint[];
 }
 
-export const GameUI = ({ lander }: GameUIProps) => {
+export const GameUI = ({ lander, terrain }: GameUIProps) => {
   // Calculate velocity
   const velocity = Math.sqrt(lander.velocityX * lander.velocityX + lander.velocityY * lander.velocityY);
   
   // Set up client-side only values
   const [altitude, setAltitude] = useState(0);
   
-  // Update altitude on client side only
+  // Update altitude on client side only - now using terrain for a more accurate calculation
   useEffect(() => {
+    if (terrain.length === 0) return;
+    
     const calculateAltitude = () => {
-      setAltitude(Math.max(0, window.innerHeight - lander.y - lander.height/2 - 50));
+      // Calculate altitude to nearest terrain point (more accurate)
+      let minAltitude = Infinity;
+      
+      for (let i = 0; i < terrain.length; i++) {
+        const dist = Math.sqrt(
+          Math.pow(lander.x - terrain[i].x, 2) + 
+          Math.pow(lander.y - terrain[i].y, 2)
+        );
+        if (dist < minAltitude) {
+          minAltitude = dist;
+        }
+      }
+      
+      setAltitude(minAltitude);
     };
     
     calculateAltitude();
-    window.addEventListener('resize', calculateAltitude);
+    
+    // Update altitude when lander position changes
+    const intervalId = setInterval(calculateAltitude, 100);
     
     return () => {
-      window.removeEventListener('resize', calculateAltitude);
+      clearInterval(intervalId);
     };
-  }, [lander.y, lander.height]);
+  }, [lander.x, lander.y, terrain]);
   
   // Get fuel percentage rounded down
   const fuelPercentage = Math.floor(lander.fuel);

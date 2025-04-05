@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunar Lander Challenge</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Press+Start+2P&display=swap');
+        
+        :root {
+            --primary-color: #6a11cb;
+            --secondary-color: #2575fc;
+            --danger-color: #ff416c;
+            --success-color: #07c25e;
+            --text-color: #f1f1f1;
+            --moon-surface: #4a4e69;
+            --stars: rgba(255, 255, 255, 0.8);
+            --shadow: rgba(0, 0, 0, 0.5);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: var(--text-color);
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+        
+        .game-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        
+        .game-ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            z-index: 10;
+            pointer-events: none;
+        }
+        
+        .ui-panel {
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            padding: 0.8rem 1.2rem;
+            box-shadow: 0 4px 10px var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .ui-title {
+            font-size: 0.8rem;
+            margin-bottom: 0.3rem;
+            color: var(--secondary-color);
+        }
+        
+        .ui-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+        }
+        
+        .fuel-bar {
+            height: 5px;
+            background: linear-gradient(90deg, var(--danger-color), var(--secondary-color));
+            border-radius: 3px;
+            margin-top: 5px;
+            transition: width 0.3s ease;
+        }
+        
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            z-index: 10;
+        }
+        
+        .control-btn {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: none;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 8px var(--shadow);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            user-select: none;
+        }
+        
+        .control-btn:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .control-btn.left {
+            transform: rotate(-90deg);
+        }
+        
+        .control-btn.right {
+            transform: rotate(90deg);
+        }
+        
+        .angle-indicator {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 240px;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            pointer-events: none;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .angle-meter {
+            position: relative;
+            width: 200px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            margin-bottom: 5px;
+            overflow: hidden;
+        }
+        
+        .safe-zone {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 100%;
+            background: rgba(0, 255, 0, 0.3);
+        }
+        
+        .warning-zone {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 100%;
+            background: rgba(255, 255, 0, 0.1);
+        }
+        
+        .angle-pointer {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 100%;
+            background: white;
+            transition: transform 0.1s ease;
+        }
+        
+        .angle-status {
+            display: flex;
+            width: 200px;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 0.8rem;
+        }
+        
+        .angle-value {
+            font-weight: bold;
+            color: white;
+        }
+        
+        .angle-warning {
+            font-weight: bold;
+            color: yellow;
+        }
+        
+        .angle-danger {
+            font-weight: bold;
+            color: red;
+        }
+        
+        .angle-perfect {
+            font-weight: bold;
+            color: lime;
+        }
+        
+        .start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            transition: opacity 0.5s ease;
+        }
+        
+        .title {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 3rem;
+            color: var(--secondary-color);
+            text-shadow: 0 0 10px var(--secondary-color);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 3rem;
+            text-align: center;
+            max-width: 600px;
+            line-height: 1.5;
+        }
+        
+        .start-btn {
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            color: white;
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: bold;
+            box-shadow: 0 4px 15px var(--shadow);
+        }
+        
+        .start-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(37, 117, 252, 0.6);
+        }
+        
+        .end-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+        
+        .end-message {
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        
+        .landing-score {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        
+        .crash {
+            color: var(--danger-color);
+        }
+        
+        .success {
+            color: var(--success-color);
+        }
+        
+        .instructions {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2rem;
+            border-radius: 10px;
+            max-width: 500px;
+            text-align: center;
+            z-index: 30;
+            display: none;
+        }
+        
+        .instructions h2 {
+            margin-bottom: 1rem;
+            color: var(--secondary-color);
+        }
+        
+        .instructions p {
+            margin-bottom: 0.5rem;
+        }
+        
+        .close-btn {
+            margin-top: 1rem;
+            background: var(--secondary-color);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .help-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            cursor: pointer;
+            z-index: 20;
+        }
+        
+        /* Stars background */
+        .stars {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
+        .star {
+            position: absolute;
+            background: var(--stars);
+            border-radius: 50%;
+            animation: twinkle var(--duration) infinite ease-in-out;
+        }
+        
+        @keyframes twinkle {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
+        }
+        
+        @media (max-width: 768px) {
+            .title {
+                font-size: 2rem;
+            }
+            
+            .subtitle {
+                font-size: 1rem;
+                max-width: 90%;
+            }
+            
+            .controls {
+                gap: 1rem;
+                bottom: 10px;
+            }
+            
+            .control-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 1.2rem;
+            }
+            
+            .angle-indicator {
+                width: 200px;
+                height: 50px;
+                top: 70px;
+            }
+            
+            .angle-meter {
+                width: 180px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- Background stars -->
+        <div class="stars" id="stars"></div>
+        
+        <!-- Game UI -->
+        <div class="game-ui">
+            <div class="ui-panel">
+                <div class="ui-title">ALTITUDE</div>
+                <div class="ui-value" id="altitude">1000m</div>
+            </div>
+            <div class="ui-panel">
+                <div class="ui-title">VELOCITY</div>
+                <div class="ui-value" id="velocity">0m/s</div>
+            </div>
+            <div class="ui-panel">
+                <div class="ui-title">FUEL</div>
+                <div class="ui-value" id="fuel">100%</div>
+                <div class="fuel-bar" id="fuel-bar"></div>
+            </div>
+        </div>
+        
+        <!-- Improved Angle Indicator -->
+        <div class="angle-indicator" id="angleIndicator">
+            <div class="angle-meter">
+                <div class="warning-zone"></div>
+                <div class="safe-zone"></div>
+                <div class="angle-pointer" id="anglePointer"></div>
+            </div>
+            <div class="angle-status">
+                <span>-90°</span>
+                <span id="angleText" class="angle-value">0°</span>
+                <span>+90°</span>
+            </div>
+        </div>
+        
+        <!-- Game Canvas -->
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- Touch Controls -->
+        <div class="controls">
+            <button class="control-btn left" id="rotateLeft">↑</button>
+            <button class="control-btn" id="thrustBtn">↑</button>
+            <button class="control-btn right" id="rotateRight">↑</button>
+        </div>
+        
+        <!-- Start Screen -->
+        <div class="start-screen" id="startScreen">
+            <h1 class="title">LUNAR LANDER</h1>
+            <p class="subtitle">Navigate your spacecraft to the moon's surface. Control your descent carefully to avoid crashing. Every thruster burst uses fuel - manage it wisely!</p>
+            <button class="start-btn" id="startBtn">START MISSION</button>
+            <button class="help-btn" id="helpBtn">?</button>
+        </div>
+        
+        <!-- End Screen -->
+        <div class="end-screen" id="endScreen">
+            <h2 class="end-message" id="endMessage">MISSION FAILED</h2>
+            <p class="landing-score" id="landingScore">Impact Velocity: 0m/s</p>
+            <button class="start-btn" id="restartBtn">TRY AGAIN</button>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="instructions" id="instructions">
+            <h2>Lunar Lander Instructions</h2>
+            <p><strong>Objective:</strong> Land safely on the moon's surface at a speed below 5m/s.</p>
+            <p><strong>Controls:</strong></p>
+            <p>• Arrow Left/Right or A/D keys to rotate</p>
+            <p>• Arrow Up or W key to fire thrusters</p>
+            <p>Or use the touch controls on mobile</p>
+            <p><strong>Landing Requirements:</strong></p>
+            <p>• Velocity below 5m/s</p>
+            <p>• Angle within ±10° (Upright position)</p>
+            <p>• Land on the marked platform</p>
+            <p><strong>Note:</strong> Each thruster burst uses fuel. When you run out, you have no control!</p>
+            <button class="close-btn" id="closeBtn">UNDERSTOOD</button>
+        </div>
+    </div>
+
+    <script>
+        // Game variables
+        let canvas, ctx;
+        let landerImg, stars = [];
+        let lander = {
+            x: 0,
+            y: 0,
+            width: 30,
+            height: 40,
+            angle: 0,
+            velocityX: 0,
+            velocityY: 0,
+            rotationSpeed: 0,
+            fuel: 100,
+            thrusting: false,
+            crashed: false,
+            landed: false
+        };
+        
+        let terrain = [];
+        let landingZone = { x: 0, y: 0, width: 80 };
+        let gameStarted = false;
+        let gravity = 0.0015;
+        let thrust = 0.05;
+        let rotationThrust = 0.08; // Slower rotation
+        let lastTime = 0;
+        let keys = {};
+        let terrainWidth = 0;
+        let beaconPulse = 0;
+        
+        // DOM elements
+        const altitudeDisplay = document.getElementById('altitude');
+        const velocityDisplay = document.getElementById('velocity');
+        const fuelDisplay = document.getElementById('fuel');
+        const fuelBar = document.getElementById('fuel-bar');
+        const anglePointer = document.getElementById('anglePointer');
+        const angleText = document.getElementById('angleText');
+        const angleIndicator = document.getElementById('angleIndicator');
+        const startScreen = document.getElementById('startScreen');
+        const endScreen = document.getElementById('endScreen');
+        const endMessage = document.getElementById('endMessage');
+        const landingScore = document.getElementById('landingScore');
+        const startBtn = document.getElementById('startBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const thrustBtn = document.getElementById('thrustBtn');
+        const rotateLeftBtn = document.getElementById('rotateLeft');
+        const rotateRightBtn = document.getElementById('rotateRight');
+        const helpBtn = document.getElementById('helpBtn');
+        const instructions = document.getElementById('instructions');
+        const closeBtn = document.getElementById('closeBtn');
+        
+        // Initialize game
+        function init() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Create stars background
+            createStars();
+            
+            // Generate terrain
+            generateTerrain();
+            
+            // Position lander
+            resetLander();
+            
+            // Event listeners
+            document.addEventListener('keydown', handleKeyDown);
+            document.addEventListener('keyup', handleKeyUp);
+            
+            startBtn.addEventListener('click', startGame);
+            restartBtn.addEventListener('click', restartGame);
+            helpBtn.addEventListener('click', showInstructions);
+            closeBtn.addEventListener('click', hideInstructions);
+            
+            // Touch controls
+            thrustBtn.addEventListener('mousedown', () => keys['ArrowUp'] = true);
+            thrustBtn.addEventListener('mouseup', () => keys['ArrowUp'] = false);
+            thrustBtn.addEventListener('touchstart', () => keys['ArrowUp'] = true);
+            thrustBtn.addEventListener('touchend', () => keys['ArrowUp'] = false);
+            
+            rotateLeftBtn.addEventListener('mousedown', () => keys['ArrowLeft'] = true);
+            rotateLeftBtn.addEventListener('mouseup', () => keys['ArrowLeft'] = false);
+            rotateLeftBtn.addEventListener('touchstart', () => keys['ArrowLeft'] = true);
+            rotateLeftBtn.addEventListener('touchend', () => keys['ArrowLeft'] = false);
+            
+            rotateRightBtn.addEventListener('mousedown', () => keys['ArrowRight'] = true);
+            rotateRightBtn.addEventListener('mouseup', () => keys['ArrowRight'] = false);
+            rotateRightBtn.addEventListener('touchstart', () => keys['ArrowRight'] = true);
+            rotateRightBtn.addEventListener('touchend', () => keys['ArrowRight'] = false);
+            
+            // Start animation loop
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            terrainWidth = canvas.width;
+            
+            if (gameStarted) {
+                generateTerrain();
+                resetLander();
+            }
+        }
+        
+        function createStars() {
+            const starsContainer = document.getElementById('stars');
+            starsContainer.innerHTML = '';
+            
+            for (let i = 0; i < 100; i++) {
+                const star = document.createElement('div');
+                star.classList.add('star');
+                
+                // Random position and size
+                const size = Math.random() * 3;
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.top = `${Math.random() * 100}%`;
+                
+                // Random animation duration for twinkling effect
+                const duration = 1 + Math.random() * 4;
+                star.style.setProperty('--duration', `${duration}s`);
+                
+                starsContainer.appendChild(star);
+            }
+        }
+        
+        function generateTerrain() {
+            terrain = [];
+            const segments = 20;
+            const segmentWidth = terrainWidth / segments;
+            let prevHeight = canvas.height * 0.7;
+            
+            // Generate random terrain height at each segment
+            for (let i = 0; i <= segments; i++) {
+                const x = i * segmentWidth;
+                
+                // Add some randomness but smooth transitions
+                let height;
+                if (i === 0 || i === segments) {
+                    height = prevHeight;
+                } else {
+                    const maxChange = canvas.height * 0.1;
+                    height = prevHeight + (Math.random() * maxChange * 2 - maxChange);
+                    height = Math.max(canvas.height * 0.5, Math.min(canvas.height * 0.9, height));
+                }
+                
+                terrain.push({ x, y: height });
+                prevHeight = height;
+            }
+            
+            // Choose a random flat area for landing zone
+            const landingSegment = Math.floor(segments/2) + Math.floor(Math.random() * (segments/3));
+            landingZone.x = terrain[landingSegment].x;
+            landingZone.y = terrain[landingSegment].y - 5; // Slightly above terrain
+            landingZone.width = 100;
+            
+            // Flatten a few segments around landing zone
+            for (let i = landingSegment - 2; i <= landingSegment + 2; i++) {
+                if (i >= 0 && i < terrain.length) {
+                    terrain[i].y = landingZone.y + 5;
+                }
+            }
+        }
+        
+        function resetLander() {
+            lander.x = canvas.width / 2;
+            lander.y = 50;
+            lander.angle = 0;
+            lander.velocityX = 0;
+            lander.velocityY = 0;
+            lander.rotationSpeed = 0;
+            lander.fuel = 100;
+            lander.thrusting = false;
+            lander.crashed = false;
+            lander.landed = false;
+            
+            updateUI();
+            updateAngleIndicator();
+        }
+        
+        function startGame() {
+            startScreen.style.opacity = '0';
+            startScreen.style.pointerEvents = 'none';
+            gameStarted = true;
+            angleIndicator.style.display = 'flex';
+            resetLander();
+        }
+        
+        function restartGame() {
+            endScreen.style.opacity = '0';
+            endScreen.style.pointerEvents = 'none';
+			angleIndicator.style.display = 'flex';
+            generateTerrain();
+            resetLander();
+        }
+        
+        function showInstructions() {
+            instructions.style.display = 'block';
+        }
+        
+        function hideInstructions() {
+            instructions.style.display = 'none';
+        }
+        
+        function handleKeyDown(e) {
+            keys[e.key] = true;
+        }
+        
+        function handleKeyUp(e) {
+            keys[e.key] = false;
+        }
+        
+        function updateUI() {
+            // Calculate altitude to nearest terrain point
+            let minAltitude = Infinity;
+            for (let i = 0; i < terrain.length; i++) {
+                const dist = Math.sqrt(
+                    Math.pow(lander.x - terrain[i].x, 2) + 
+                    Math.pow(lander.y - terrain[i].y, 2)
+                );
+                if (dist < minAltitude) {
+                    minAltitude = dist;
+                }
+            }
+            
+            const velocity = Math.sqrt(lander.velocityX * lander.velocityX + lander.velocityY * lander.velocityY);
+            
+            altitudeDisplay.textContent = `${Math.floor(minAltitude)}m`;
+            velocityDisplay.textContent = `${velocity.toFixed(1)}m/s`;
+            fuelDisplay.textContent = `${Math.floor(lander.fuel)}%`;
+            fuelBar.style.width = `${lander.fuel}%`;
+            
+            // Change fuel bar color as it gets low
+            if (lander.fuel < 20) {
+                fuelBar.style.background = 'var(--danger-color)';
+            } else if (lander.fuel < 50) {
+                fuelBar.style.background = 'linear-gradient(90deg, var(--danger-color), #f7b733)';
+            }
+            
+            updateAngleIndicator();
+        }
+        
+        function updateAngleIndicator() {
+            const angleDegrees = Math.round(lander.angle * (180 / Math.PI));
+            
+            // Update angle pointer position (mapped from -90 to +90 degrees)
+            const pointerPos = (angleDegrees + 90) / 180 * 200;
+            anglePointer.style.transform = `translateX(${pointerPos}%) translateX(-50%)`;
+            
+            // Update angle text with color coding
+            angleText.textContent = `${angleDegrees}°`;
+            
+            // Remove all color classes first
+            angleText.classList.remove('angle-perfect', 'angle-warning', 'angle-danger', 'angle-value');
+            
+            if (Math.abs(angleDegrees) < 5) {
+                angleText.classList.add('angle-perfect');
+            } else if (Math.abs(angleDegrees) < 10) {
+                angleText.classList.add('angle-warning');
+            } else if (Math.abs(angleDegrees) < 20) {
+                angleText.classList.add('angle-danger');
+            } else {
+                angleText.classList.add('angle-danger');
+            }
+        }
+        
+        function checkCollision() {
+            // Check if lander is below terrain at any point
+            for (let i = 0; i < terrain.length - 1; i++) {
+                const seg = terrain[i];
+                const nextSeg = terrain[i + 1];
+                
+                // Skip if lander is not between these two segments
+                if (lander.x + lander.width/2 < seg.x || lander.x - lander.width/2 > nextSeg.x) {
+                    continue;
+                }
+                
+                // Linear interpolation to find terrain height at lander's x position
+                const t = (lander.x - seg.x) / (nextSeg.x - seg.x);
+                const terrainY = seg.y + t * (nextSeg.y - seg.y);
+                
+                // Check if lander has collided with terrain
+                if (lander.y + lander.height/2 >= terrainY) {
+                    // Check if this is the landing zone
+                    const inLandingZone = 
+                        lander.x >= landingZone.x && 
+                        lander.x <= landingZone.x + landingZone.width;
+                    
+                    const velocity = Math.sqrt(lander.velocityX * lander.velocityX + lander.velocityY * lander.velocityY);
+                    const angleDegrees = Math.abs(lander.angle * (180 / Math.PI));
+                    
+                    if (inLandingZone && velocity < 5 && angleDegrees < 10) {
+                        // Successful landing
+                        lander.landed = true;
+                        endMessage.textContent = "LANDING SUCCESS!";
+                        endMessage.className = "end-message success";
+                        landingScore.textContent = `Landing Velocity: ${velocity.toFixed(1)}m/s | Angle: ${angleDegrees.toFixed(1)}°`;
+                    } else {
+                        // Crash
+                        lander.crashed = true;
+                        endMessage.textContent = "MISSION FAILED";
+                        endMessage.className = "end-message crash";
+                        landingScore.textContent = `Impact Velocity: ${velocity.toFixed(1)}m/s`;
+                        
+                        if (velocity >= 10) {
+                            landingScore.textContent += " - You smashed to pieces!";
+                        } else if (!inLandingZone) {
+                            landingScore.textContent += " - Wrong landing spot!";
+                        } else if (angleDegrees >= 10) {
+                            landingScore.textContent += " - Bad landing angle!";
+                        }
+                    }
+                    
+                    endScreen.style.opacity = '1';
+                    endScreen.style.pointerEvents = 'all';
+                    angleIndicator.style.display = 'none';
+                    
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        function update(delta) {
+            // Update beacon pulse animation
+            beaconPulse = (beaconPulse + 0.02) % (Math.PI * 2);
+            
+            // Skip if game not started or lander has crashed/landed
+            if (!gameStarted || lander.crashed || lander.landed) return;
+            
+            // Apply rotation controls (no auto-stabilization)
+            if (keys['ArrowLeft'] || keys['a']) {
+                lander.rotationSpeed = -rotationThrust;
+            } else if (keys['ArrowRight'] || keys['d']) {
+                lander.rotationSpeed = rotationThrust;
+            } else {
+                lander.rotationSpeed = 0;
+            }
+            
+            // Apply thrust if up is pressed and there's fuel
+            lander.thrusting = false;
+            if ((keys['ArrowUp'] || keys['w']) && lander.fuel > 0) {
+                lander.thrusting = true;
+                lander.fuel -= 0.1 * delta;
+                if (lander.fuel < 0) lander.fuel = 0;
+                
+                // Calculate thrust vector based on angle
+                const thrustX = Math.sin(lander.angle) * thrust * delta;
+                const thrustY = -Math.cos(lander.angle) * thrust * delta;
+                
+                lander.velocityX += thrustX;
+                lander.velocityY += thrustY;
+            }
+            
+            // Update angle with damping to prevent excessive spinning
+            lander.angle += lander.rotationSpeed * delta;
+
+            // Angle checks
+            if (lander.angle < (- Math.PI)) {
+                lander.angle = 2 * Math.PI + lander.angle;
+			} else if (lander.angle >= (Math.PI)) {
+                lander.angle = lander.angle - 2 * Math.PI;
+			}
+
+            
+            // Apply gravity
+            lander.velocityY += gravity * delta;
+            
+            // Update position
+            lander.x += lander.velocityX * delta;
+            lander.y += lander.velocityY * delta;
+            
+            // Boundary checks
+            if (lander.x < 0) {
+                lander.x = 0;
+                lander.velocityX *= -0.5; // Bounce off edge
+            } else if (lander.x > canvas.width) {
+                lander.x = canvas.width;
+                lander.velocityX *= -0.5; // Bounce off edge
+            }
+            
+            // Update UI elements
+            updateUI();
+            
+            // Check for collision with terrain
+            return checkCollision();
+        }
+        
+        function draw() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw stars background is handled by CSS
+            
+            // Draw terrain
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            
+            for (let i = 0; i < terrain.length; i++) {
+                ctx.lineTo(terrain[i].x, terrain[i].y);
+            }
+            
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.lineTo(0, canvas.height);
+            ctx.fillStyle = '#4a4e69';
+            ctx.fill();
+            ctx.strokeStyle = '#3a3e59';
+            ctx.stroke();
+            
+            // Draw landing zone with enhanced visibility
+            const landingCenterX = landingZone.x + landingZone.width / 2;
+            const landingCenterY = landingZone.y;
+            
+            // Landing zone glow effect
+            ctx.beginPath();
+            ctx.moveTo(landingZone.x, landingZone.y);
+            ctx.lineTo(landingZone.x + landingZone.width, landingZone.y);
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = 'rgba(0, 255, 100, 0.5)';
+            ctx.stroke();
+            
+            // Landing zone platform
+            ctx.beginPath();
+            ctx.moveTo(landingZone.x, landingZone.y);
+            ctx.lineTo(landingZone.x + landingZone.width, landingZone.y);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#00ff64';
+            ctx.stroke();
+            
+            // Landing zone markings (stripes)
+            for (let x = landingZone.x; x < landingZone.x + landingZone.width; x += 15) {
+                ctx.beginPath();
+                ctx.moveTo(x, landingZone.y);
+                ctx.lineTo(x + 8, landingZone.y);
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#00ff64';
+                ctx.stroke();
+            }
+            
+            // Pulse beacon at landing zone
+            const pulseSize = 8 + Math.sin(beaconPulse) * 5;
+            ctx.beginPath();
+            ctx.arc(landingCenterX, landingCenterY - 8, pulseSize, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 255, 100, 0.3)';
+            ctx.fill();
+            
+            // Beacon center
+            ctx.beginPath();
+            ctx.arc(landingCenterX, landingCenterY - 8, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#00ff64';
+            ctx.fill();
+            
+            // Beacon light beam
+            const beamHeight = 30 + Math.sin(beaconPulse * 2) * 10;
+            const gradient = ctx.createLinearGradient(
+                landingCenterX, landingCenterY - 8, 
+                landingCenterX, landingCenterY - 8 - beamHeight
+            );
+            gradient.addColorStop(0, 'rgba(0, 255, 100, 0.5)');
+            gradient.addColorStop(1, 'rgba(0, 255, 100, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(landingCenterX - 3, landingCenterY - 8, 6, -beamHeight);
+            
+            // Landed flag (visible when approaching)
+            if (Math.abs(lander.y - landingCenterY) < 200) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(landingCenterX, landingCenterY - 25, 2, -15);
+                ctx.fillStyle = '#00ff64';
+                ctx.fillRect(landingCenterX + 2, landingCenterY - 25, 12, -10);
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 8px Arial';
+                ctx.fillText('LZ', landingCenterX + 4, landingCenterY - 32);
+            }
+            
+            // Draw angle guide at landing zone when close
+            if (Math.abs(lander.y - landingCenterY) < 300 && Math.abs(lander.x - landingCenterX) < 300) {
+                const guideSize = 40 + Math.sin(beaconPulse * 4) * 5;
+                
+                ctx.save();
+                ctx.translate(landingCenterX, landingCenterY);
+                
+                // Safe angle zone (green)
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(-guideSize * Math.sin(0.17), -guideSize * Math.cos(0.17));
+                ctx.lineTo(guideSize * Math.sin(0.17), -guideSize * Math.cos(0.17));
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
+                ctx.fill();
+                
+                // Center line
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, -guideSize);
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#00ff00';
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+            
+            // Draw lander
+            ctx.save();
+            ctx.translate(lander.x, lander.y);
+            ctx.rotate(lander.angle);
+            
+            // Lander base
+            ctx.fillStyle = '#333';
+            ctx.fillRect(-lander.width/2, -lander.height/2, lander.width, lander.height);
+            
+            // Lander window
+            ctx.fillStyle = '#6495ed';
+            ctx.beginPath();
+            ctx.arc(0, -5, lander.width/3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Thruster flame
+            if (lander.thrusting) {
+                ctx.fillStyle = '#ff4500';
+                ctx.beginPath();
+                ctx.moveTo(-lander.width/4, lander.height/2);
+                ctx.lineTo(lander.width/4, lander.height/2);
+                ctx.lineTo(0, lander.height/2 + 20 + Math.random() * 10);
+                ctx.closePath();
+                ctx.fill();
+            }
+            
+            ctx.restore();
+            
+            // Draw altitude marker
+            if (!lander.landed && !lander.crashed) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.strokeStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(lander.x, canvas.height * 0.7, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(lander.x, canvas.height * 0.7 + 5);
+                ctx.lineTo(lander.x, lander.y - lander.height/2 - 5);
+                ctx.setLineDash([5, 3]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            
+            // Draw distance indicator to landing zone when far away
+            if (Math.abs(lander.x - landingCenterX) > 200 || lander.y < landingCenterY - 300) {
+                const arrowX = lander.x > landingCenterX ? canvas.width - 20 : 20;
+                const arrowDir = lander.x > landingCenterX ? -1 : 1;
+                
+                ctx.font = '12px Orbitron';
+                ctx.fillStyle = '#00ff64';
+                ctx.fillText('LAND HERE', arrowX + (arrowDir * 30), 50);
+                
+                ctx.beginPath();
+                ctx.moveTo(arrowX, 40);
+                ctx.lineTo(arrowX + (arrowDir * 15), 50);
+                ctx.lineTo(arrowX, 60);
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#00ff64';
+                ctx.stroke();
+                
+                const distance = Math.floor(Math.sqrt(
+                    Math.pow(lander.x - landingCenterX, 2) + 
+                    Math.pow(lander.y - landingCenterY, 2)
+                ));
+                
+                ctx.fillText(`${distance}m`, arrowX + (arrowDir * 30), 70);
+            }
+        }
+        
+        function gameLoop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const delta = timestamp - lastTime;
+            lastTime = timestamp;
+            
+            update(delta / 16); // Normalize delta to ~16ms frames
+            draw();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Start the game
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

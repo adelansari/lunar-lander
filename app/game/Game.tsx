@@ -22,12 +22,27 @@ export const Game = () => {
   }, []);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [beaconPulse, setBeaconPulse] = useState(0);
+
+  // Initialize canvas when component mounts
+  useEffect(() => {
+    if (!isClient || !canvasRef.current) return;
+    
+    // Initialize canvas
+    const canvas = canvasRef.current;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    const ctx = canvas.getContext('2d');
+    ctxRef.current = ctx;
+    
+  }, [isClient]);
   
   // Initialize game objects and state
-  const { terrain, landingZone, generateTerrain } = useTerrain();
+  const { terrain, landingZone, generateTerrain, regenerateTerrain } = useTerrain();
   const { 
     lander, 
     resetLander, 
@@ -40,33 +55,51 @@ export const Game = () => {
   
   // Start the game
   const startGame = useCallback(() => {
-    if (!isClient) return;
+    if (!isClient || !canvasRef.current) return;
     
-    setGameStarted(true);
-    generateTerrain(canvasRef.current?.width || window.innerWidth);
+    // First generate terrain based on canvas size
+    generateTerrain(canvasRef.current.width);
+    
+    // Then reset lander position
     resetLander();
+    
+    // Finally, set game as started
+    setGameStarted(true);
   }, [isClient, generateTerrain, resetLander]);
   
   // Restart the game
   const restartGame = useCallback(() => {
-    if (!isClient) return;
+    if (!isClient || !canvasRef.current) return;
     
-    generateTerrain(canvasRef.current?.width || window.innerWidth);
+    // First regenerate terrain based on canvas size
+    regenerateTerrain(canvasRef.current.width);
+    
+    // Then reset lander position
     resetLander();
+    
+    // Finally, set game as started
     setGameStarted(true);
-  }, [isClient, generateTerrain, resetLander]);
+  }, [isClient, regenerateTerrain, resetLander]);
+  
+  // Update function for game logic
+  const updateGame = useCallback((delta: number) => {
+    if (!gameStarted || lander.crashed || lander.landed) return;
+    
+    // Update beacon pulse animation
+    setBeaconPulse(prev => (prev + 0.02) % (Math.PI * 2));
+    
+    // Update lander position and physics
+    updateLander(delta, keys);
+    
+    // Check for collision with terrain
+    checkCollision();
+  }, [gameStarted, lander.crashed, lander.landed, updateLander, keys, checkCollision]);
   
   // Game loop
   useGameLoop({
     enabled: isClient && gameStarted && !lander.crashed && !lander.landed,
     onUpdate: (delta: number) => {
-      updateLander(delta, keys);
-      checkCollision();
-      
-      // Update beacon pulse animation
-      setBeaconPulse(prev => (prev + 0.02) % (Math.PI * 2));
-      
-      // Render game
+      updateGame(delta);
       renderGame();
     }
   });
@@ -76,10 +109,9 @@ export const Game = () => {
     if (!isClient) return;
     
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const ctx = ctxRef.current;
     
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!canvas || !ctx) return;
     
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -311,14 +343,23 @@ export const Game = () => {
     
     const handleResize = () => {
       if (!canvasRef.current) return;
+      
+      // Update canvas dimensions
       canvasRef.current.width = window.innerWidth;
       canvasRef.current.height = window.innerHeight;
       
+      // Store context reference
+      ctxRef.current = canvasRef.current.getContext('2d');
+      
       if (gameStarted) {
+        // Regenerate terrain for new canvas size
         generateTerrain(canvasRef.current.width);
+        
+        // Reset lander position
         resetLander();
       }
       
+      // Redraw game
       renderGame();
     };
     
@@ -334,9 +375,9 @@ export const Game = () => {
     <GameContainer>
       <StarsBackground />
       
-      <GameUI lander={lander} />
+      <GameUI lander={lander} terrain={terrain} />
       
-      <AngleIndicator angle={lander.angle} />
+      {gameStarted && <AngleIndicator angle={lander.angle} />}
       
       <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full" />
       

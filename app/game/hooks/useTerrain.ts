@@ -1,9 +1,10 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import type { TerrainPoint, LandingZone } from '../types/game';
 
 export const useTerrain = () => {
   // Server-side rendering check
   const [isClient, setIsClient] = useState(false);
+  const terrainGenerated = useRef(false);
   
   useEffect(() => {
     setIsClient(true);
@@ -18,6 +19,9 @@ export const useTerrain = () => {
 
   const generateTerrain = useCallback((terrainWidth: number) => {
     if (!isClient) return;
+    
+    // Only generate terrain once unless explicitly regenerated
+    if (terrainGenerated.current && terrain.length > 0) return;
     
     const segments = 20;
     const segmentWidth = terrainWidth / segments;
@@ -62,7 +66,16 @@ export const useTerrain = () => {
     
     setTerrain(newTerrain);
     setLandingZone(newLandingZone);
-  }, [isClient]);
+    terrainGenerated.current = true;
+  }, [isClient, terrain.length]);
 
-  return { terrain, landingZone, generateTerrain };
+  // Function to force regeneration of terrain
+  const regenerateTerrain = useCallback((terrainWidth: number) => {
+    if (!isClient) return;
+    
+    terrainGenerated.current = false;
+    generateTerrain(terrainWidth);
+  }, [isClient, generateTerrain]);
+
+  return { terrain, landingZone, generateTerrain, regenerateTerrain };
 }; 
