@@ -19,6 +19,7 @@ export const Game = () => {
   
   useEffect(() => {
     setIsClient(true);
+    console.log("Client-side rendering started");
   }, []);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -26,6 +27,11 @@ export const Game = () => {
   const [gameStarted, setGameStarted] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [beaconPulse, setBeaconPulse] = useState(0);
+  const frameCountRef = useRef(0);
+  const gameStateRef = useRef({ 
+    gameStarted: false,
+    beaconPulse: 0
+  });
 
   // Initialize canvas when component mounts
   useEffect(() => {
@@ -39,6 +45,7 @@ export const Game = () => {
     const ctx = canvas.getContext('2d');
     ctxRef.current = ctx;
     
+    console.log("Canvas initialized:", canvas.width, "x", canvas.height);
   }, [isClient]);
   
   // Initialize game objects and state
@@ -50,12 +57,14 @@ export const Game = () => {
     checkCollision
   } = useLander(terrain, landingZone);
   
-  // Keyboard controls
-  const { keys, handleKeyDown, handleKeyUp } = useKeyboardControls();
+  // Keyboard controls - use the improved version with refs
+  const { keys, setKey, handleKeyDown, handleKeyUp } = useKeyboardControls();
   
   // Start the game
   const startGame = useCallback(() => {
     if (!isClient || !canvasRef.current) return;
+    
+    console.log("Starting game...");
     
     // First generate terrain based on canvas size
     generateTerrain(canvasRef.current.width);
@@ -65,11 +74,15 @@ export const Game = () => {
     
     // Finally, set game as started
     setGameStarted(true);
+    gameStateRef.current.gameStarted = true;
+    console.log("Game started!");
   }, [isClient, generateTerrain, resetLander]);
   
   // Restart the game
   const restartGame = useCallback(() => {
     if (!isClient || !canvasRef.current) return;
+    
+    console.log("Restarting game...");
     
     // First regenerate terrain based on canvas size
     regenerateTerrain(canvasRef.current.width);
@@ -79,25 +92,35 @@ export const Game = () => {
     
     // Finally, set game as started
     setGameStarted(true);
+    gameStateRef.current.gameStarted = true;
+    console.log("Game restarted!");
   }, [isClient, regenerateTerrain, resetLander]);
   
   // Update function for game logic
   const updateGame = useCallback((delta: number) => {
-    if (!gameStarted || lander.crashed || lander.landed) return;
+    if (!gameStateRef.current.gameStarted || lander.crashed || lander.landed) return;
     
-    // Update beacon pulse animation
-    setBeaconPulse(prev => (prev + 0.02) % (Math.PI * 2));
+    frameCountRef.current += 1;
+    
+    // Log game state periodically
+    if (frameCountRef.current % 100 === 0) {
+      console.log("Game running - Frame:", frameCountRef.current, "Lander position:", lander.x.toFixed(1), lander.y.toFixed(1), "Velocity:", lander.velocityY.toFixed(2));
+    }
+    
+    // Update beacon pulse animation - using ref to avoid re-renders
+    gameStateRef.current.beaconPulse = (gameStateRef.current.beaconPulse + 0.02) % (Math.PI * 2);
+    setBeaconPulse(gameStateRef.current.beaconPulse);
     
     // Update lander position and physics
     updateLander(delta, keys);
     
     // Check for collision with terrain
     checkCollision();
-  }, [gameStarted, lander.crashed, lander.landed, updateLander, keys, checkCollision]);
+  }, [gameStateRef, lander, updateLander, keys, checkCollision]);
   
   // Game loop
   useGameLoop({
-    enabled: isClient && gameStarted && !lander.crashed && !lander.landed,
+    enabled: isClient,
     onUpdate: (delta: number) => {
       updateGame(delta);
       renderGame();
@@ -371,6 +394,19 @@ export const Game = () => {
     };
   }, [isClient, gameStarted, generateTerrain, resetLander, renderGame]);
   
+  // Auto-start the game for testing when in client
+  useEffect(() => {
+    if (isClient && canvasRef.current && !gameStarted) {
+      // Auto-start game after a short delay
+      const timer = setTimeout(() => {
+        console.log("Auto-starting game for testing...");
+        startGame();
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isClient, canvasRef, gameStarted, startGame]);
+  
   return (
     <GameContainer>
       <StarsBackground />
@@ -383,12 +419,7 @@ export const Game = () => {
       
       <Controls
         keys={keys}
-        onThrustDown={() => keys['ArrowUp'] = true}
-        onThrustUp={() => keys['ArrowUp'] = false}
-        onLeftDown={() => keys['ArrowLeft'] = true}
-        onLeftUp={() => keys['ArrowLeft'] = false}
-        onRightDown={() => keys['ArrowRight'] = true}
-        onRightUp={() => keys['ArrowRight'] = false}
+        setKey={setKey}
       />
       
       <StartScreen 

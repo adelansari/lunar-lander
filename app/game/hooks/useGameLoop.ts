@@ -14,16 +14,18 @@ export const useGameLoop = ({ enabled, onUpdate }: GameLoopOptions): void => {
       const delta = timestamp - lastTimeRef.current;
       lastTimeRef.current = timestamp;
       
-      // Normalize delta to ~16ms frames
+      // Match original HTML implementation exactly: normalize to ~16ms frames
       onUpdate(delta / 16);
       
       requestRef.current = requestAnimationFrame(animate);
     };
     
+    console.log("Starting game loop");
     requestRef.current = requestAnimationFrame(animate);
     
     return () => {
       if (requestRef.current) {
+        console.log("Stopping game loop");
         cancelAnimationFrame(requestRef.current);
       }
     };
