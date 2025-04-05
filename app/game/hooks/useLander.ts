@@ -1,7 +1,14 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import type { Lander, TerrainPoint, LandingZone, KeysState } from '../types/game';
 
 export const useLander = (terrain: TerrainPoint[], landingZone: LandingZone) => {
+  // Server-side rendering check
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
   const [lander, setLander] = useState<Lander>({
     x: 0,
     y: 0,
@@ -24,8 +31,12 @@ export const useLander = (terrain: TerrainPoint[], landingZone: LandingZone) => 
 
   // Reset lander to starting position
   const resetLander = useCallback(() => {
+    if (!isClient) return;
+    
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
+    
     setLander({
-      x: window.innerWidth / 2,
+      x: screenWidth / 2,
       y: 50,
       width: 30,
       height: 40,
@@ -38,10 +49,12 @@ export const useLander = (terrain: TerrainPoint[], landingZone: LandingZone) => 
       crashed: false,
       landed: false
     });
-  }, []);
+  }, [isClient]);
 
   // Update lander position and physics
   const updateLander = useCallback((delta: number, keys: KeysState) => {
+    if (!isClient) return;
+    
     setLander(prev => {
       // Skip if crashed or landed
       if (prev.crashed || prev.landed) return prev;
@@ -91,11 +104,13 @@ export const useLander = (terrain: TerrainPoint[], landingZone: LandingZone) => 
       let y = prev.y + velocityY * delta;
       
       // Boundary checks
+      const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
+      
       if (x < 0) {
         x = 0;
         velocityX *= -0.5; // Bounce off edge
-      } else if (x > window.innerWidth) {
-        x = window.innerWidth;
+      } else if (x > screenWidth) {
+        x = screenWidth;
         velocityX *= -0.5; // Bounce off edge
       }
 
@@ -111,11 +126,11 @@ export const useLander = (terrain: TerrainPoint[], landingZone: LandingZone) => 
         thrusting
       };
     });
-  }, []);
+  }, [isClient]);
 
   // Check for collision with terrain
   const checkCollision = useCallback(() => {
-    if (terrain.length === 0) return false;
+    if (!isClient || terrain.length === 0) return false;
     
     // Check if lander is below terrain at any point
     for (let i = 0; i < terrain.length - 1; i++) {
@@ -153,7 +168,7 @@ export const useLander = (terrain: TerrainPoint[], landingZone: LandingZone) => 
       }
     }
     return false;
-  }, [lander, terrain, landingZone]);
+  }, [isClient, lander, terrain, landingZone]);
 
   return { lander, resetLander, updateLander, checkCollision };
 }; 

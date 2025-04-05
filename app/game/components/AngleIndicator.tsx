@@ -1,8 +1,18 @@
+import { useState, useEffect } from 'react';
+
 interface AngleIndicatorProps {
   angle: number;
 }
 
 export const AngleIndicator = ({ angle }: AngleIndicatorProps) => {
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  if (!isClient) return null;
+  
   // Convert angle from radians to degrees
   const angleDegrees = Math.round(angle * (180 / Math.PI));
   

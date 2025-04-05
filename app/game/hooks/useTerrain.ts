@@ -1,7 +1,14 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import type { TerrainPoint, LandingZone } from '../types/game';
 
 export const useTerrain = () => {
+  // Server-side rendering check
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
   const [terrain, setTerrain] = useState<TerrainPoint[]>([]);
   const [landingZone, setLandingZone] = useState<LandingZone>({
     x: 0,
@@ -10,12 +17,14 @@ export const useTerrain = () => {
   });
 
   const generateTerrain = useCallback((terrainWidth: number) => {
+    if (!isClient) return;
+    
     const segments = 20;
     const segmentWidth = terrainWidth / segments;
     const newTerrain: TerrainPoint[] = [];
     
     // Get canvas height approximation
-    const canvasHeight = window.innerHeight;
+    const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 600;
     let prevHeight = canvasHeight * 0.7;
     
     // Generate random terrain height at each segment
@@ -53,7 +62,7 @@ export const useTerrain = () => {
     
     setTerrain(newTerrain);
     setLandingZone(newLandingZone);
-  }, []);
+  }, [isClient]);
 
   return { terrain, landingZone, generateTerrain };
 }; 

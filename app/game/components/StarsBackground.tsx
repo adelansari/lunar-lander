@@ -10,8 +10,11 @@ interface Star {
 
 export const StarsBackground = () => {
   const [stars, setStars] = useState<Star[]>([]);
-
+  const [isClient, setIsClient] = useState(false);
+  
   useEffect(() => {
+    setIsClient(true);
+    
     const starsArray: Star[] = [];
 
     for (let i = 0; i < 100; i++) {
@@ -28,6 +31,8 @@ export const StarsBackground = () => {
 
     setStars(starsArray);
   }, []);
+
+  if (!isClient) return null;
 
   return (
     <div className="absolute top-0 left-0 w-full h-full z-[1]">

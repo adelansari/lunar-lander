@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { Lander } from '../types/game';
 
 interface GameUIProps {
@@ -8,8 +9,22 @@ export const GameUI = ({ lander }: GameUIProps) => {
   // Calculate velocity
   const velocity = Math.sqrt(lander.velocityX * lander.velocityX + lander.velocityY * lander.velocityY);
   
-  // Calculate approximate altitude (simplified)
-  const altitude = Math.max(0, window.innerHeight - lander.y - lander.height/2 - 50);
+  // Set up client-side only values
+  const [altitude, setAltitude] = useState(0);
+  
+  // Update altitude on client side only
+  useEffect(() => {
+    const calculateAltitude = () => {
+      setAltitude(Math.max(0, window.innerHeight - lander.y - lander.height/2 - 50));
+    };
+    
+    calculateAltitude();
+    window.addEventListener('resize', calculateAltitude);
+    
+    return () => {
+      window.removeEventListener('resize', calculateAltitude);
+    };
+  }, [lander.y, lander.height]);
   
   // Get fuel percentage rounded down
   const fuelPercentage = Math.floor(lander.fuel);

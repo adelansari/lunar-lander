@@ -14,6 +14,13 @@ import { useKeyboardControls } from './hooks/useKeyboardControls';
 import type { TerrainPoint, LandingZone, Lander } from './types/game';
 
 export const Game = () => {
+  // Server-side rendering check
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
@@ -32,23 +39,27 @@ export const Game = () => {
   const { keys, handleKeyDown, handleKeyUp } = useKeyboardControls();
   
   // Start the game
-  const startGame = () => {
+  const startGame = useCallback(() => {
+    if (!isClient) return;
+    
     setGameStarted(true);
     generateTerrain(canvasRef.current?.width || window.innerWidth);
     resetLander();
-  };
+  }, [isClient, generateTerrain, resetLander]);
   
   // Restart the game
-  const restartGame = () => {
+  const restartGame = useCallback(() => {
+    if (!isClient) return;
+    
     generateTerrain(canvasRef.current?.width || window.innerWidth);
     resetLander();
     setGameStarted(true);
-  };
+  }, [isClient, generateTerrain, resetLander]);
   
   // Game loop
   useGameLoop({
-    enabled: gameStarted && !lander.crashed && !lander.landed,
-    onUpdate: (delta) => {
+    enabled: isClient && gameStarted && !lander.crashed && !lander.landed,
+    onUpdate: (delta: number) => {
       updateLander(delta, keys);
       checkCollision();
       
@@ -62,6 +73,8 @@ export const Game = () => {
   
   // Draw game elements on canvas
   const renderGame = useCallback(() => {
+    if (!isClient) return;
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
     
@@ -87,7 +100,7 @@ export const Game = () => {
       // Draw distance indicator to landing zone when far away
       drawDistanceIndicator(ctx, lander, landingZone);
     }
-  }, [terrain, landingZone, lander, beaconPulse]);
+  }, [isClient, terrain, landingZone, lander, beaconPulse]);
   
   // Draw terrain on canvas
   const drawTerrain = (ctx: CanvasRenderingContext2D, terrain: TerrainPoint[]) => {
@@ -281,6 +294,8 @@ export const Game = () => {
   
   // Setup event listeners
   useEffect(() => {
+    if (!isClient) return;
+    
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     
@@ -288,10 +303,12 @@ export const Game = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleKeyDown, handleKeyUp]);
+  }, [isClient, handleKeyDown, handleKeyUp]);
   
   // Handle resize
   useEffect(() => {
+    if (!isClient) return;
+    
     const handleResize = () => {
       if (!canvasRef.current) return;
       canvasRef.current.width = window.innerWidth;
@@ -311,7 +328,7 @@ export const Game = () => {
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [gameStarted, generateTerrain, resetLander, renderGame]);
+  }, [isClient, gameStarted, generateTerrain, resetLander, renderGame]);
   
   return (
     <GameContainer>
