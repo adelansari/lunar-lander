@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply font-orbitron text-text-main h-screen overflow-hidden select-none;
+  background: linear-gradient(135deg, theme('colors.gradient-start'), theme('colors.gradient-mid'), theme('colors.gradient-end'));
+   --primary-color: theme('colors.primary');
+   --secondary-color: theme('colors.secondary');
+   --danger-color: theme('colors.danger');
+   --success-color: theme('colors.success');
+   --text-color: theme('colors.text-main');
+   --moon-surface: theme('colors.moon-surface');
+   --stars: theme('colors.stars');
+   --shadow: theme('colors.shadow-col');
+}
+
+.star {
+   --duration: 3s;
+}
