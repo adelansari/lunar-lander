@@ -1,22 +1,29 @@
 import { useState } from 'react';
-import GameCanvas from './components/GameCanvas';
-import GameUI from './components/GameUI';
-import StartScreen from './components/StartScreen';
 import { GlobalStyles } from './styles/global';
+import GameCanvas from './components/GameCanvas';
+import StartScreen from './components/StartScreen';
+import EndScreen from './components/EndScreen';
+import { GameStatus } from './game/types';
 
 const App = () => {
-  const [gameStarted, setGameStarted] = useState(false);
+  const [gameStatus, setGameStatus] = useState<GameStatus>('start');
 
   return (
     <>
       <GlobalStyles />
-      {!gameStarted ? (
-        <StartScreen onStart={() => setGameStarted(true)} />
-      ) : (
-        <>
-          <GameCanvas />
-          <GameUI lander={/* pass lander state */} />
-        </>
+      {gameStatus === 'start' && (
+        <StartScreen onStart={() => setGameStatus('playing')} />
+      )}
+      
+      {gameStatus === 'playing' && (
+        <GameCanvas setGameStatus={setGameStatus} />
+      )}
+      
+      {(gameStatus === 'crashed' || gameStatus === 'landed') && (
+        <EndScreen 
+          status={gameStatus}
+          onRestart={() => setGameStatus('playing')}
+        />
       )}
     </>
   );

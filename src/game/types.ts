@@ -23,3 +23,5 @@ export interface LandingZone {
     y: number;
     width: number;
 }
+
+export type GameStatus = 'start' | 'playing' | 'crashed' | 'landed';
