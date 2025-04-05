@@ -1,63 +1,79 @@
-import { useState } from 'react'
-import GameCanvas from './components/GameCanvas'
-import GameUI from './components/GameUI'
-import AngleIndicator from './components/AngleIndicator'
-import StartScreen from './components/StartScreen'
-import EndScreen from './components/EndScreen'
-import Instructions from './components/Instructions'
-import './index.css'
+import { useState, useCallback, useEffect } from 'react';
+import './index.css';
+import type { LanderState } from './types';
+import StarsBackground from './components/StarsBackground';
+import StartScreen from './components/StartScreen';
+import EndScreen from './components/EndScreen';
+import InstructionsPopup from './components/InstructionsPopup';
+import GameScreen from './components/GameScreen'; // Import the new GameScreen
+// Import useGameInput hook to set up global listeners
+import { useGameInput } from './hooks/useGameInput';
 
-export interface GameStats {
-  altitude: number
-  velocity: number
-  fuel: number
-  angle: number
-}
+type Screen = 'start' | 'playing' | 'landed' | 'crashed';
 
-const App = () => {
-  const [gameStarted, setGameStarted] = useState(false)
-  const [gameStats, setGameStats] = useState<GameStats>({
-    altitude: 1000,
-    velocity: 0,
-    fuel: 100,
-    angle: 0,
-  })
-  const [gameOverMessage, setGameOverMessage] = useState('')
-  const [showInstructions, setShowInstructions] = useState(false)
+function App() {
+  const [currentScreen, setCurrentScreen] = useState<Screen>('start');
+  const [showInstructions, setShowInstructions] = useState<boolean>(false);
+  const [finalLanderState, setFinalLanderState] = useState<LanderState | null>(null);
 
-  const handleGameOver = (message: string) => {
-    setGameOverMessage(message)
-    setGameStarted(false)
-  }
+  // Initialize global input listeners from the hook.
+  // We don't need the returned values here in App, just the effect setup.
+  useGameInput();
 
-  const handleRestart = () => {
-    setGameOverMessage('')
-    setGameStarted(true)
-  }
+  // Function to start the game
+  const handleStartGame = useCallback(() => {
+    setCurrentScreen('playing');
+    setShowInstructions(false);
+  }, []);
+
+  // Function called when game ends (landed or crashed)
+  const handleGameOver = useCallback((status: 'landed' | 'crashed', finalLander: LanderState) => {
+    setFinalLanderState(finalLander); // Store final state for EndScreen
+    setCurrentScreen(status); // Update screen state
+  }, []);
+
+  // Function to restart the game
+  const handleRestartGame = useCallback(() => {
+    setFinalLanderState(null); // Clear previous final state
+    setCurrentScreen('playing'); // Switch back to playing screen
+  }, []);
+
+  // Functions for instruction popup visibility
+  const handleShowHelp = useCallback(() => { setShowInstructions(true); }, []);
+  const handleCloseHelp = useCallback(() => { setShowInstructions(false); }, []);
+
+  // Generate a unique key for GameScreen only when switching to 'playing'
+  // This forces a remount and reset of the GameScreen and GameCanvas state
+  const gameScreenKey = currentScreen === 'playing' ? `game-${Date.now()}` : 'game-screen';
 
   return (
     <div className="game-container">
-      {gameStarted && (
-        <>
-          <GameCanvas onUpdateStats={setGameStats} onGameOver={handleGameOver} />
-          <GameUI 
-            altitude={gameStats.altitude} 
-            velocity={gameStats.velocity} 
-            fuel={gameStats.fuel} 
-          />
-          <AngleIndicator angle={gameStats.angle} />
-        </>
+      {/* Render stars background always */}
+      <StarsBackground />
+
+      {/* Conditionally render screen components */}
+      {currentScreen === 'start' && (
+        <StartScreen onStart={handleStartGame} onShowHelp={handleShowHelp} />
       )}
-      {!gameStarted && !gameOverMessage && (
-        <StartScreen 
-          onStart={() => setGameStarted(true)} 
-          onShowInstructions={() => setShowInstructions(true)} 
+
+      {currentScreen === 'playing' && (
+        // Use the key prop to ensure GameScreen remounts on restart
+        <GameScreen key={gameScreenKey} onGameOver={handleGameOver} />
+      )}
+
+      {/* Show EndScreen only if landed/crashed and final state exists */}
+      {(currentScreen === 'landed' || currentScreen === 'crashed') && finalLanderState && (
+        <EndScreen
+          status={currentScreen}
+          lander={finalLanderState}
+          onRestart={handleRestartGame}
         />
       )}
-      {gameOverMessage && <EndScreen message={gameOverMessage} onRestart={handleRestart} />}
-      {showInstructions && <Instructions onClose={() => setShowInstructions(false)} />}
+
+      {/* Show Instructions Popup if state is true */}
+      {showInstructions && <InstructionsPopup onClose={handleCloseHelp} />}
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

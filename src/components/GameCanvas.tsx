@@ -1,326 +1,296 @@
-import React, { useEffect, useRef } from 'react'
-import { GameStats } from '../App'
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import type { LanderState, Point, LandingZone, GameStatus, GameInputState } from '../types';
+import {
+    INITIAL_LANDER_STATE, GRAVITY, THRUST_FORCE, ROTATION_THRUST,
+    FUEL_CONSUMPTION_RATE, TERRAIN_SEGMENTS, LANDING_ZONE_WIDTH,
+    LANDING_ZONE_HEIGHT_OFFSET, MAX_SAFE_LANDING_SPEED, MAX_SAFE_LANDING_ANGLE_DEG,
+    LANDER_WIDTH, LANDER_HEIGHT
+} from '../constants';
+import { radToDeg, degToRad } from '../helpers';
 
 interface GameCanvasProps {
-  onUpdateStats: (stats: GameStats) => void
-  onGameOver: (message: string) => void
+  inputStateRef: React.RefObject<GameInputState>;
+  onGameOver: (status: 'landed' | 'crashed', finalLander: LanderState) => void;
+  provideStateForUI: (lander: LanderState, terrain: Point[]) => void;
 }
 
-const GameCanvas: React.FC<GameCanvasProps> = ({ onUpdateStats, onGameOver }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+export const GameCanvas: React.FC<GameCanvasProps> = ({
+    inputStateRef,
+    onGameOver,
+    provideStateForUI
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const [lander, setLander] = useState<LanderState | null>(null);
+  const [terrain, setTerrain] = useState<Point[]>([]);
+  const [landingZone, setLandingZone] = useState<LandingZone | null>(null);
+  const [internalGameStatus, setInternalGameStatus] = useState<GameStatus>('playing');
+
+  const animationFrameIdRef = useRef<number | null>(null);
+  const lastTimeRef = useRef<number>(0);
+  const beaconPulseRef = useRef<number>(0);
+
+  // --- Terrain Generation ---
+  const generateTerrain = useCallback((canvasWidth: number, canvasHeight: number) => {
+    const newTerrain: Point[] = [];
+    const segmentWidth = canvasWidth / TERRAIN_SEGMENTS;
+    let currentHeight = canvasHeight * 0.7;
+    for (let i = 0; i <= TERRAIN_SEGMENTS; i++) {
+        const x = i * segmentWidth;
+        let y = currentHeight;
+        if (i > 0 && i < TERRAIN_SEGMENTS) {
+            const heightChange = canvasHeight * 0.1;
+            y += (Math.random() * heightChange * 2 - heightChange);
+            y = Math.max(canvasHeight * 0.5, Math.min(canvasHeight * 0.9, y));
+        }
+        newTerrain.push({ x, y });
+        currentHeight = y;
+    }
+    // Landing Zone
+    const lzIndex = Math.floor(TERRAIN_SEGMENTS / 2) + Math.floor(Math.random() * (TERRAIN_SEGMENTS / 4)) - Math.floor(TERRAIN_SEGMENTS / 8);
+    const lzTerrainY = newTerrain[lzIndex].y;
+    const lzPlatformY = lzTerrainY - LANDING_ZONE_HEIGHT_OFFSET;
+    const lzX = newTerrain[lzIndex].x;
+    // Flatten terrain near LZ
+    for (let i = lzIndex - 2; i <= lzIndex + 2; i++) {
+        if (i >= 0 && i < newTerrain.length) {
+            const dist = Math.abs(i - lzIndex); const factor = Math.max(0, 1 - dist / 3);
+            newTerrain[i].y = lzTerrainY + (newTerrain[i].y - lzTerrainY) * (1 - factor);
+        }
+    }
+    if (lzIndex > 0) newTerrain[lzIndex - 1].y = lzTerrainY;
+    newTerrain[lzIndex].y = lzTerrainY;
+    if (lzIndex < newTerrain.length - 1) newTerrain[lzIndex + 1].y = lzTerrainY;
+
+    setTerrain(newTerrain);
+    setLandingZone({ x: lzX, y: lzPlatformY, width: LANDING_ZONE_WIDTH });
+  }, []);
+
+  // --- Lander Initialization ---
+  const initializeLander = useCallback((canvasWidth: number) => {
+    const landerData: LanderState = {
+        width: LANDER_WIDTH,
+        height: LANDER_HEIGHT,
+        angle: INITIAL_LANDER_STATE.angle,
+        velocityX: INITIAL_LANDER_STATE.velocityX,
+        velocityY: INITIAL_LANDER_STATE.velocityY,
+        fuel: INITIAL_LANDER_STATE.fuel,
+        thrusting: INITIAL_LANDER_STATE.thrusting,
+        landed: INITIAL_LANDER_STATE.landed,
+        crashed: INITIAL_LANDER_STATE.crashed,
+        x: canvasWidth / 2,
+        y: 50, // Initial Y position
+    };
+    setLander(landerData);
+  }, []);
+
+
+  // --- Canvas Setup & Resize ---
+  const setupCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    ctxRef.current = canvas.getContext('2d');
+    const { innerWidth, innerHeight } = window;
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+    // Reset game state on canvas setup/resize
+    generateTerrain(innerWidth, innerHeight);
+    initializeLander(innerWidth);
+    setInternalGameStatus('playing');
+    lastTimeRef.current = 0;
+  }, [generateTerrain, initializeLander]);
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+    setupCanvas();
+    window.addEventListener('resize', setupCanvas);
+    return () => {
+      window.removeEventListener('resize', setupCanvas);
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = null;
+      }
+    };
+  }, [setupCanvas]);
 
-    // Initialize game variables
-    let stars: { x: number; y: number; size: number }[] = []
-    let terrain: { x: number; y: number }[] = []
-    let landingZone = { x: 0, y: 0, width: 100 }
-    const gravity = 0.0015
-    const thrust = 0.05
-    const rotationThrust = 0.08
-    let lastTime = 0
-    let beaconPulse = 0
-    let keys: { [key: string]: boolean } = {}
 
-    let lander = {
-      x: canvas.width / 2,
-      y: 50,
-      width: 30,
-      height: 40,
-      angle: 0,
-      velocityX: 0,
-      velocityY: 0,
-      rotationSpeed: 0,
-      fuel: 100,
-      thrusting: false,
-      crashed: false,
-      landed: false
+  // --- Physics Update ---
+  const update = useCallback((delta: number) => {
+    if (!lander || internalGameStatus !== 'playing' || !inputStateRef.current) return;
+
+    const input = inputStateRef.current;
+    let nextLander = { ...lander };
+    let rotationSpeed = 0;
+
+    // Input -> Rotation
+    if (input.left) rotationSpeed = -ROTATION_THRUST;
+    else if (input.right) rotationSpeed = ROTATION_THRUST;
+    nextLander.angle += rotationSpeed * delta;
+    nextLander.angle = (nextLander.angle + 3 * Math.PI) % (2 * Math.PI) - Math.PI; // Normalize angle
+
+    // Input -> Thrust
+    nextLander.thrusting = input.thrust && nextLander.fuel > 0;
+    if (nextLander.thrusting) {
+      nextLander.fuel = Math.max(0, nextLander.fuel - FUEL_CONSUMPTION_RATE * delta);
+      const thrustX = Math.sin(nextLander.angle) * THRUST_FORCE * delta;
+      const thrustY = -Math.cos(nextLander.angle) * THRUST_FORCE * delta;
+      nextLander.velocityX += thrustX;
+      nextLander.velocityY += thrustY;
     }
 
-    // Define helper functions before usage
-    const generateTerrain = () => {
-      terrain = []
-      const segments = 20
-      const segWidth = canvas.width / segments
-      let prevHeight = canvas.height * 0.7
-      for (let i = 0; i <= segments; i++) {
-        let height: number
-        if (i === 0 || i === segments) {
-          height = prevHeight
-        } else {
-          const maxChange = canvas.height * 0.1
-          height = prevHeight + (Math.random() * maxChange * 2 - maxChange)
-          height = Math.max(canvas.height * 0.5, Math.min(canvas.height * 0.9, height))
+    // Apply Gravity
+    nextLander.velocityY += GRAVITY * delta;
+
+    // Update Position
+    nextLander.x += nextLander.velocityX * delta;
+    nextLander.y += nextLander.velocityY * delta;
+
+    // Boundary Wrap (X-axis)
+    const canvasWidth = canvasRef.current?.width ?? window.innerWidth;
+    if (nextLander.x < 0) nextLander.x = canvasWidth;
+    if (nextLander.x > canvasWidth) nextLander.x = 0;
+
+    // --- Collision Detection ---
+    let newStatus: GameStatus | null = null;
+    if (terrain.length > 1) {
+        for (let i = 0; i < terrain.length - 1; i++) {
+            const segStart = terrain[i]; const segEnd = terrain[i + 1];
+            const landerLeft = nextLander.x - nextLander.width / 2;
+            const landerRight = nextLander.x + nextLander.width / 2;
+            const segMinX = Math.min(segStart.x, segEnd.x);
+            const segMaxX = Math.max(segStart.x, segEnd.x);
+            if (landerRight < segMinX || landerLeft > segMaxX) continue;
+
+            let terrainY;
+            if (segEnd.x === segStart.x) terrainY = Math.max(segStart.y, segEnd.y);
+            else {
+                const t = (nextLander.x - segStart.x) / (segEnd.x - segStart.x);
+                const clampedT = Math.max(0, Math.min(1, t));
+                terrainY = segStart.y + clampedT * (segEnd.y - segStart.y);
+            }
+
+            // Check collision
+            if (nextLander.y + nextLander.height / 2 >= terrainY) {
+                const velocity = Math.sqrt(nextLander.velocityX ** 2 + nextLander.velocityY ** 2);
+                const angleDegrees = Math.abs(radToDeg(nextLander.angle));
+                const isOverLandingZone = landingZone &&
+                    nextLander.x >= landingZone.x && nextLander.x <= landingZone.x + landingZone.width &&
+                    Math.abs(terrainY - (landingZone.y + LANDING_ZONE_HEIGHT_OFFSET)) < 10;
+
+                // Determine outcome
+                if (isOverLandingZone && velocity < MAX_SAFE_LANDING_SPEED && angleDegrees < MAX_SAFE_LANDING_ANGLE_DEG) {
+                    newStatus = 'landed';
+                    nextLander.y = terrainY - nextLander.height / 2;
+                    nextLander.velocityX = 0; nextLander.velocityY = 0; nextLander.angle = 0;
+                } else {
+                    newStatus = 'crashed';
+                }
+                nextLander.landed = newStatus === 'landed';
+                nextLander.crashed = newStatus === 'crashed';
+                break; // Collision detected
+            }
         }
-        terrain.push({ x: i * segWidth, y: height })
-        prevHeight = height
+    }
+
+    // Update React state
+    setLander(nextLander);
+    if (newStatus) {
+        setInternalGameStatus(newStatus);
+        onGameOver(newStatus, nextLander); // Notify parent
+    }
+    provideStateForUI(nextLander, terrain); // Update UI state
+
+  }, [lander, terrain, landingZone, internalGameStatus, inputStateRef, onGameOver, provideStateForUI]);
+
+
+  // --- Drawing Logic ---
+  const draw = useCallback(() => {
+    const ctx = ctxRef.current;
+    const canvas = canvasRef.current;
+    if (!ctx || !canvas || !lander) return;
+    const { width: canvasWidth, height: canvasHeight } = canvas;
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+    // Draw Terrain
+    if (terrain.length > 1) {
+      ctx.save(); ctx.beginPath(); ctx.moveTo(0, canvasHeight);
+      terrain.forEach(point => ctx.lineTo(point.x, point.y));
+      ctx.lineTo(canvasWidth, canvasHeight); ctx.closePath();
+      ctx.fillStyle = '#4a4e69'; ctx.fill();
+      ctx.strokeStyle = '#3a3e59'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.restore();
+    }
+    // Draw Landing Zone Platform
+    if (landingZone) {
+        ctx.save(); const lz = landingZone;
+        beaconPulseRef.current = (beaconPulseRef.current + 0.05) % (Math.PI * 2);
+        const pulseFactor = Math.sin(beaconPulseRef.current);
+        ctx.beginPath(); ctx.moveTo(lz.x, lz.y); ctx.lineTo(lz.x + lz.width, lz.y);
+        ctx.lineWidth = 4 + pulseFactor * 1.5;
+        ctx.strokeStyle = `rgba(0, 255, 100, ${0.6 + pulseFactor * 0.2})`;
+        ctx.lineCap = 'round'; ctx.stroke();
+        ctx.restore();
+    }
+    // Draw Lander
+    ctx.save(); ctx.translate(lander.x, lander.y); ctx.rotate(lander.angle);
+    ctx.fillStyle = '#cccccc'; ctx.fillRect(-lander.width / 2, -lander.height / 2, lander.width, lander.height); // Body
+    ctx.fillStyle = '#6495ed'; ctx.beginPath(); ctx.arc(0, -lander.height / 4, lander.width / 3.5, 0, Math.PI * 2); ctx.fill(); // Cockpit
+    ctx.strokeStyle = '#999999'; ctx.lineWidth = 2; const legLength = lander.height * 0.4, legSpread = lander.width * 0.4; // Legs
+    ctx.beginPath(); ctx.moveTo(-lander.width / 2, lander.height / 2); ctx.lineTo(-lander.width / 2 - legSpread, lander.height / 2 + legLength); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(lander.width / 2, lander.height / 2); ctx.lineTo(lander.width / 2 + legSpread, lander.height / 2 + legLength); ctx.stroke();
+    if (lander.thrusting) { // Flame
+        ctx.fillStyle = `rgba(255, ${100 + Math.random() * 100}, 0, ${0.7 + Math.random() * 0.3})`; ctx.beginPath(); const flameLength = lander.height * 0.5 + Math.random() * 10;
+        ctx.moveTo(-lander.width / 4, lander.height / 2); ctx.lineTo(lander.width / 4, lander.height / 2); ctx.lineTo(0, lander.height / 2 + flameLength); ctx.closePath(); ctx.fill();
+    }
+    if (lander.crashed) { // Crash
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.7)'; ctx.beginPath(); ctx.arc(0, 0, lander.width * (1 + Math.random() * 0.5), 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+
+  }, [lander, terrain, landingZone]);
+
+
+  // --- Game Loop ---
+  useEffect(() => {
+    let isActive = true;
+
+    const loop = (timestamp: number) => {
+      if (!isActive) return;
+
+      if (!lastTimeRef.current) lastTimeRef.current = timestamp;
+      const delta = (timestamp - lastTimeRef.current) / 16.67;
+      lastTimeRef.current = timestamp;
+
+      if (internalGameStatus === 'playing') {
+          const clampedDelta = Math.min(delta, 3); // Prevent large jumps
+          update(clampedDelta);
       }
-      const landingSegment = Math.floor(segments / 2) + Math.floor(Math.random() * (segments / 3))
-      landingZone.x = terrain[landingSegment].x
-      landingZone.y = terrain[landingSegment].y - 5
-      landingZone.width = 100
-      for (let i = landingSegment - 2; i <= landingSegment + 2; i++) {
-        if (i >= 0 && i < terrain.length) {
-          terrain[i].y = landingZone.y + 5
-        }
-      }
-    }
+      draw();
 
-    const resetLander = () => {
-      lander.x = canvas.width / 2
-      lander.y = 50
-      lander.angle = 0
-      lander.velocityX = 0
-      lander.velocityY = 0
-      lander.rotationSpeed = 0
-      lander.fuel = 100
-      lander.thrusting = false
-      lander.crashed = false
-      lander.landed = false
-    }
-
-    const createStars = () => {
-      stars = []
-      for (let i = 0; i < 100; i++) {
-        stars.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
-          size: Math.random() * 3
-        })
-      }
-    }
-
-    const resizeCanvas = () => {
-      canvas.width = window.innerWidth
-      canvas.height = window.innerHeight
-      generateTerrain()
-      resetLander()
-      createStars()
-    }
-
-    // Setup initial canvas size
-    resizeCanvas()
-    window.addEventListener('resize', resizeCanvas)
-
-    // Keyboard event listeners
-    const handleKeyDown = (e: KeyboardEvent) => { keys[e.key] = true }
-    const handleKeyUp = (e: KeyboardEvent) => { keys[e.key] = false }
-    document.addEventListener('keydown', handleKeyDown)
-    document.addEventListener('keyup', handleKeyUp)
-
-    // Update UI stats (altitude, velocity, fuel, angle)
-    const updateStats = () => {
-      let minAltitude = Infinity
-      for (let i = 0; i < terrain.length; i++) {
-        const dist = Math.hypot(lander.x - terrain[i].x, lander.y - terrain[i].y)
-        if (dist < minAltitude) {
-          minAltitude = dist
-        }
-      }
-      const velocity = Math.hypot(lander.velocityX, lander.velocityY)
-      onUpdateStats({
-        altitude: Math.floor(minAltitude),
-        velocity,
-        fuel: lander.fuel,
-        angle: Math.round(lander.angle * (180 / Math.PI))
-      })
-    }
-
-    // Collision detection (using linear interpolation along terrain segments)
-    const checkCollision = () => {
-      for (let i = 0; i < terrain.length - 1; i++) {
-        const seg = terrain[i]
-        const nextSeg = terrain[i + 1]
-        if (lander.x + lander.width / 2 < seg.x || lander.x - lander.width / 2 > nextSeg.x) continue
-        const t = (lander.x - seg.x) / (nextSeg.x - seg.x)
-        const terrainY = seg.y + t * (nextSeg.y - seg.y)
-        if (lander.y + lander.height / 2 >= terrainY) {
-          const inZone = lander.x >= landingZone.x && lander.x <= landingZone.x + landingZone.width
-          const velocity = Math.hypot(lander.velocityX, lander.velocityY)
-          const angleDegrees = Math.abs(lander.angle * (180 / Math.PI))
-          if (inZone && velocity < 5 && angleDegrees < 10) {
-            lander.landed = true
-            onGameOver(`Landing Success! Velocity: ${velocity.toFixed(1)} m/s, Angle: ${angleDegrees.toFixed(1)}°`)
-          } else {
-            lander.crashed = true
-            onGameOver(`Crash! Impact Velocity: ${velocity.toFixed(1)} m/s`)
-          }
-          return true
-        }
-      }
-      return false
-    }
-
-    // Update game state
-    const update = (delta: number) => {
-      beaconPulse = (beaconPulse + 0.02) % (Math.PI * 2)
-      if (lander.crashed || lander.landed) return
-
-      // Handle rotation input
-      if (keys['ArrowLeft'] || keys['a']) {
-        lander.rotationSpeed = -rotationThrust
-      } else if (keys['ArrowRight'] || keys['d']) {
-        lander.rotationSpeed = rotationThrust
+      if (isActive && internalGameStatus === 'playing') {
+        animationFrameIdRef.current = requestAnimationFrame(loop);
       } else {
-        lander.rotationSpeed = 0
+        if (animationFrameIdRef.current) {
+            cancelAnimationFrame(animationFrameIdRef.current);
+            animationFrameIdRef.current = null;
+        }
       }
-      // Handle thrust input
-      lander.thrusting = false
-      if ((keys['ArrowUp'] || keys['w']) && lander.fuel > 0) {
-        lander.thrusting = true
-        lander.fuel -= 0.1 * delta
-        if (lander.fuel < 0) lander.fuel = 0
-        const thrustX = Math.sin(lander.angle) * thrust * delta
-        const thrustY = -Math.cos(lander.angle) * thrust * delta
-        lander.velocityX += thrustX
-        lander.velocityY += thrustY
-      }
-      // Update angle (normalize to -π .. π)
-      lander.angle += lander.rotationSpeed * delta
-      if (lander.angle < -Math.PI) lander.angle = 2 * Math.PI + lander.angle
-      else if (lander.angle >= Math.PI) lander.angle = lander.angle - 2 * Math.PI
+    };
 
-      // Apply gravity and update position
-      lander.velocityY += gravity * delta
-      lander.x += lander.velocityX * delta
-      lander.y += lander.velocityY * delta
-      if (lander.x < 0) { lander.x = 0; lander.velocityX *= -0.5 }
-      else if (lander.x > canvas.width) { lander.x = canvas.width; lander.velocityX *= -0.5 }
-
-      checkCollision()
-      updateStats()
+    if (internalGameStatus === 'playing') {
+        lastTimeRef.current = 0;
+        animationFrameIdRef.current = requestAnimationFrame(loop);
     }
-
-    // Draw everything on the canvas
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      // Draw terrain
-      ctx.beginPath()
-      ctx.moveTo(0, canvas.height)
-      for (let i = 0; i < terrain.length; i++) {
-        ctx.lineTo(terrain[i].x, terrain[i].y)
-      }
-      ctx.lineTo(canvas.width, canvas.height)
-      ctx.closePath()
-      ctx.fillStyle = '#4a4e69'
-      ctx.fill()
-      ctx.strokeStyle = '#3a3e59'
-      ctx.stroke()
-      // Draw landing zone with glow and stripes
-      ctx.beginPath()
-      ctx.moveTo(landingZone.x, landingZone.y)
-      ctx.lineTo(landingZone.x + landingZone.width, landingZone.y)
-      ctx.lineWidth = 8
-      ctx.strokeStyle = 'rgba(0,255,100,0.5)'
-      ctx.stroke()
-      for (let x = landingZone.x; x < landingZone.x + landingZone.width; x += 15) {
-        ctx.beginPath()
-        ctx.moveTo(x, landingZone.y)
-        ctx.lineTo(x + 8, landingZone.y)
-        ctx.lineWidth = 3
-        ctx.strokeStyle = '#00ff64'
-        ctx.stroke()
-      }
-      // Draw beacon pulse
-      const landingCenterX = landingZone.x + landingZone.width / 2
-      const pulseSize = 8 + Math.sin(beaconPulse) * 5
-      ctx.beginPath()
-      ctx.arc(landingCenterX, landingZone.y - 8, pulseSize, 0, Math.PI * 2)
-      ctx.fillStyle = 'rgba(0,255,100,0.3)'
-      ctx.fill()
-      ctx.beginPath()
-      ctx.arc(landingCenterX, landingZone.y - 8, 4, 0, Math.PI * 2)
-      ctx.fillStyle = '#00ff64'
-      ctx.fill()
-      // Draw stars
-      stars.forEach(star => {
-        ctx.beginPath()
-        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2)
-        ctx.fillStyle = 'white'
-        ctx.fill()
-      })
-      // Draw lander
-      ctx.save()
-      ctx.translate(lander.x, lander.y)
-      ctx.rotate(lander.angle)
-      ctx.fillStyle = '#333'
-      ctx.fillRect(-lander.width / 2, -lander.height / 2, lander.width, lander.height)
-      ctx.fillStyle = '#6495ed'
-      ctx.beginPath()
-      ctx.arc(0, -5, lander.width / 3, 0, Math.PI * 2)
-      ctx.fill()
-      if (lander.thrusting) {
-        ctx.fillStyle = '#ff4500'
-        ctx.beginPath()
-        ctx.moveTo(-lander.width / 4, lander.height / 2)
-        ctx.lineTo(lander.width / 4, lander.height / 2)
-        ctx.lineTo(0, lander.height / 2 + 20 + Math.random() * 10)
-        ctx.closePath()
-        ctx.fill()
-      }
-      ctx.restore()
-      // Draw altitude marker (only if still flying)
-      if (!lander.landed && !lander.crashed) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
-        ctx.strokeStyle = 'white'
-        ctx.beginPath()
-        ctx.arc(lander.x, canvas.height * 0.7, 3, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.stroke()
-
-        ctx.beginPath()
-        ctx.moveTo(lander.x, canvas.height * 0.7 + 5)
-        ctx.lineTo(lander.x, lander.y - lander.height / 2 - 5)
-        ctx.setLineDash([5, 3])
-        ctx.stroke()
-        ctx.setLineDash([])
-      }
-      // Draw distance indicator if far from landing zone
-      const landingCenterY = landingZone.y
-      if (Math.abs(lander.x - landingCenterX) > 200 || lander.y < landingCenterY - 300) {
-        const arrowX = lander.x > landingCenterX ? canvas.width - 20 : 20
-        const arrowDir = lander.x > landingCenterX ? -1 : 1
-        ctx.font = '12px Orbitron'
-        ctx.fillStyle = '#00ff64'
-        ctx.fillText('LAND HERE', arrowX + (arrowDir * 30), 50)
-        ctx.beginPath()
-        ctx.moveTo(arrowX, 40)
-        ctx.lineTo(arrowX + (arrowDir * 15), 50)
-        ctx.lineTo(arrowX, 60)
-        ctx.lineWidth = 2
-        ctx.strokeStyle = '#00ff64'
-        ctx.stroke()
-        const distance = Math.floor(Math.hypot(lander.x - landingCenterX, lander.y - landingCenterY))
-        ctx.fillText(`${distance}m`, arrowX + (arrowDir * 30), 70)
-      }
-    }
-
-    // Main game loop stops once the mission ends
-    const gameLoop = (timestamp: number) => {
-      if (!lastTime) lastTime = timestamp
-      const delta = timestamp - lastTime
-      lastTime = timestamp
-      update(delta / 16)
-      draw()
-      if (!lander.crashed && !lander.landed) {
-        requestAnimationFrame(gameLoop)
-      }
-    }
-
-    requestAnimationFrame(gameLoop)
 
     return () => {
-      window.removeEventListener('resize', resizeCanvas)
-      document.removeEventListener('keydown', handleKeyDown)
-      document.removeEventListener('keyup', handleKeyUp)
-    }
-  }, [onGameOver, onUpdateStats])
+      isActive = false;
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = null;
+      }
+    };
+  }, [internalGameStatus, update, draw]);
 
-  return <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0 }} />
-}
+  return <canvas ref={canvasRef} id="gameCanvas" />;
+};
 
-export default GameCanvas
+export default GameCanvas;

@@ -1,22 +1,21 @@
-import React from 'react'
+import { MAX_SAFE_LANDING_ANGLE_DEG, MAX_SAFE_LANDING_SPEED } from '../constants';
 
 interface StartScreenProps {
-  onStart: () => void
-  onShowInstructions: () => void
+  onStart: () => void;
+  onShowHelp: () => void;
 }
 
-const StartScreen: React.FC<StartScreenProps> = ({ onStart, onShowInstructions }) => {
-  return (
-    <div className="start-screen">
-      <h1 className="title">LUNAR LANDER</h1>
-      <p className="subtitle">
-        Navigate your spacecraft to the moon's surface. Control your descent carefully to avoid crashing.
-        Every thruster burst uses fuel - manage it wisely!
-      </p>
-      <button className="start-btn" onClick={onStart}>START MISSION</button>
-      <button className="help-btn" onClick={onShowInstructions}>?</button>
-    </div>
-  )
-}
+/** Renders the initial screen before the game starts. */
+const StartScreen: React.FC<StartScreenProps> = ({ onStart, onShowHelp }) => (
+  <div className="start-screen">
+    <h1 className="title">LUNAR LANDER</h1>
+    <p className="subtitle">
+        Land safely on the green platform. Watch your speed (&lt;{MAX_SAFE_LANDING_SPEED}m/s)
+        and angle (&lt;{MAX_SAFE_LANDING_ANGLE_DEG}°). Use thrusters wisely to conserve fuel.
+    </p>
+    <button className="start-btn" onClick={onStart}>START MISSION</button>
+    <button className="help-btn" onClick={onShowHelp}>?</button>
+  </div>
+);
 
-export default StartScreen
+export default StartScreen;
