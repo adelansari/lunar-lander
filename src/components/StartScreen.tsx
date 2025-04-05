@@ -2,9 +2,10 @@ import React from 'react'
 
 interface StartScreenProps {
   onStart: () => void
+  onShowInstructions: () => void
 }
 
-const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
+const StartScreen: React.FC<StartScreenProps> = ({ onStart, onShowInstructions }) => {
   return (
     <div className="start-screen">
       <h1 className="title">LUNAR LANDER</h1>
@@ -15,7 +16,9 @@ const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
       <button className="start-btn" onClick={onStart}>
         START MISSION
       </button>
-      <button className="help-btn">?</button>
+      <button className="help-btn" onClick={onShowInstructions}>
+        ?
+      </button>
     </div>
   )
 }

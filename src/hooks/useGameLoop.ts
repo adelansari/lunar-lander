@@ -7,7 +7,7 @@ const useGameLoop = (callback: (delta: number) => void) => {
   const animate = (time: number) => {
     if (previousTimeRef.current !== undefined) {
       const delta = time - previousTimeRef.current
-      callback(delta / 16) // normalize delta (assuming ~16ms per frame)
+      callback(delta / 16) // Normalize assuming ~16ms per frame
     }
     previousTimeRef.current = time
     requestRef.current = requestAnimationFrame(animate)

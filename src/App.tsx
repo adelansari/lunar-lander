@@ -1,21 +1,26 @@
 import { useState } from 'react'
 import Game from './components/Game'
-import GameUI from './components/GameUI'
 import StartScreen from './components/StartScreen'
+import Instructions from './components/Instructions'
 import './index.css'
 
 const App = () => {
   const [gameStarted, setGameStarted] = useState(false)
+  const [showInstructions, setShowInstructions] = useState(false)
 
   return (
     <div className="game-container">
-      {gameStarted && (
-        <>
-          <Game />
-          <GameUI />
-        </>
+      {gameStarted ? (
+        <Game onGameOver={() => setGameStarted(false)} />
+      ) : (
+        <StartScreen
+          onStart={() => setGameStarted(true)}
+          onShowInstructions={() => setShowInstructions(true)}
+        />
       )}
-      {!gameStarted && <StartScreen onStart={() => setGameStarted(true)} />}
+      {showInstructions && (
+        <Instructions onClose={() => setShowInstructions(false)} />
+      )}
     </div>
   )
 }

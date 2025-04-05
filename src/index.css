@@ -203,3 +203,68 @@ body {
 .angle-value {
   font-weight: bold;
 }
+
+/* Controls */
+.controls {
+  position: absolute;
+  bottom: 20px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  z-index: 10;
+}
+
+.control-btn {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  border: none;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 8px var(--shadow);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.control-btn:active {
+  transform: scale(0.95);
+  background: rgba(255,255,255,0.3);
+}
+
+.control-btn.left {
+  transform: rotate(-90deg);
+}
+
+.control-btn.right {
+  transform: rotate(90deg);
+}
+
+/* Instructions Modal */
+.instructions {
+  padding: 2rem;
+  border-radius: 10px;
+  max-width: 500px;
+  text-align: center;
+}
+.close-btn {
+  margin-top: 1rem;
+  background: var(--secondary-color);
+  border: none;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+}
+  
+/* End Screen */
+.end-message {
+  font-size: 2.5rem;
+  margin-bottom: 2rem;
+  text-align: center;
+}
