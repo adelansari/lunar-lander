@@ -1,13 +1,11 @@
-/* Import Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Press+Start+2P&display=swap');
 
-/* CSS Variables */
 :root {
     --primary-color: #6a11cb;
     --secondary-color: #2575fc;
     --danger-color: #ff416c;
     --success-color: #07c25e;
-    --warning-color: #f7b733; /* Added for fuel/angle */
+    --warning-color: #f7b733;
     --text-color: #f1f1f1;
     --moon-surface: #4a4e69;
     --stars: rgba(255, 255, 255, 0.8);
@@ -32,18 +30,18 @@
 html, body, #root {
     height: 100%;
     width: 100%;
-    overflow: hidden; /* Prevent scrollbars */
+    overflow: hidden;
 }
 
 body {
     font-family: 'Orbitron', sans-serif;
     background: linear-gradient(135deg, var(--dark-bg-1), var(--dark-bg-2), var(--dark-bg-3));
     color: var(--text-color);
-    user-select: none; /* Prevent text selection */
-    -webkit-user-select: none; /* Safari */
-    -moz-user-select: none; /* Firefox */
-    -ms-user-select: none; /* IE */
-    -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 /* Game Container */
@@ -65,6 +63,7 @@ body {
     padding: 1rem;
     display: flex;
     justify-content: space-between;
+    gap: 1rem;
     z-index: 10;
     pointer-events: none;
 }
@@ -77,6 +76,8 @@ body {
     border: 1px solid var(--ui-border);
     min-width: 120px;
     text-align: center;
+    flex: 1;
+    max-width: 180px;
 }
 
 .ui-title {
@@ -155,7 +156,7 @@ canvas#gameCanvas {
 /* Angle Indicator */
 .angle-indicator {
     position: absolute;
-    top: 80px; /* Position below top UI */
+    top: 80px;
     left: 50%;
     transform: translateX(-50%);
     width: 240px;
@@ -183,17 +184,17 @@ canvas#gameCanvas {
     overflow: hidden;
 }
 
-.safe-zone {
+.safe-zone { /* +/- 5 deg */
     position: absolute; top: 0; left: 50%;
-    width: 11.11%; /* +/- 5 deg */
+    width: 11.11%;
     height: 100%;
     background: rgba(0, 255, 0, 0.3);
     transform: translateX(-50%);
 }
 
-.warning-zone {
+.warning-zone { /* +/- 10 deg */
     position: absolute; top: 0; left: 50%;
-    width: 22.22%; /* +/- 10 deg */
+    width: 22.22%;
     height: 100%;
     background: rgba(255, 255, 0, 0.15);
     transform: translateX(-50%);
@@ -216,6 +217,7 @@ canvas#gameCanvas {
     color: rgba(255, 255, 255, 0.7);
 }
 
+/* Angle value text styling */
 .angle-value { font-weight: bold; color: white; }
 .angle-perfect { font-weight: bold; color: #adff2f; text-shadow: 0 0 5px #adff2f; }
 .angle-warning { font-weight: bold; color: var(--warning-color); text-shadow: 0 0 5px var(--warning-color); }
@@ -247,7 +249,7 @@ canvas#gameCanvas {
     color: rgba(255, 255, 255, 0.8);
 }
 
-.start-btn {
+.start-btn { /* Shared style for Start/Restart */
     background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
     border: none; color: white; padding: 1rem 2rem;
     font-size: 1.2rem; border-radius: 50px; cursor: pointer;
@@ -338,7 +340,7 @@ canvas#gameCanvas {
     .angle-indicator { width: 200px; top: 70px; padding: 8px 12px; }
     .angle-meter { width: 180px; height: 15px; }
     .angle-status { width: 180px; font-size: 0.7rem; }
-    .ui-panel { padding: 0.6rem 0.8rem; min-width: 90px; }
+    .ui-panel { padding: 0.6rem 0.8rem; min-width: 90px; max-width: 150px;}
     .ui-title { font-size: 0.7rem; }
     .ui-value { font-size: 1.1rem; }
     .game-ui { padding: 0.5rem; gap: 0.5rem; }
@@ -352,7 +354,7 @@ canvas#gameCanvas {
     .subtitle { font-size: 0.9rem; }
     .controls { gap: 0.8rem; bottom: 10px; }
     .control-btn { width: 45px; height: 45px; font-size: 1rem; }
-    .ui-panel { padding: 0.5rem 0.6rem; min-width: 75px; }
+    .ui-panel { padding: 0.5rem 0.6rem; min-width: 75px; max-width: 120px;}
     .ui-title { font-size: 0.6rem; }
     .ui-value { font-size: 1rem; }
     .angle-indicator { width: 160px; top: 65px; }
