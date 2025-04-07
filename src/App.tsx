@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import './index.css';
 import type { LanderState } from './types';
 import StarsBackground from './components/StarsBackground';
@@ -6,7 +6,7 @@ import StartScreen from './components/StartScreen';
 import EndScreen from './components/EndScreen';
 import InstructionsPopup from './components/InstructionsPopup';
 import GameScreen from './components/GameScreen';
-import { useGameInput } from './hooks/useGameInput'; // Hook for setting up global input listeners
+import { useGameInput } from './hooks/useGameInput';
 
 type Screen = 'start' | 'playing' | 'landed' | 'crashed';
 
@@ -15,8 +15,7 @@ function App() {
   const [showInstructions, setShowInstructions] = useState<boolean>(false);
   const [finalLanderState, setFinalLanderState] = useState<LanderState | null>(null);
 
-  // Initialize global input listeners (prevents default browser actions)
-  useGameInput();
+  const { inputStateRef, handleButtonPress, handleButtonRelease } = useGameInput();
 
   // --- Screen Transition Handlers ---
   const handleStartGame = useCallback(() => {
@@ -51,7 +50,13 @@ function App() {
       )}
 
       {currentScreen === 'playing' && (
-        <GameScreen key={gameScreenKey} onGameOver={handleGameOver} />
+        <GameScreen
+          key={gameScreenKey}
+          onGameOver={handleGameOver}
+          inputStateRef={inputStateRef}
+          handleButtonPress={handleButtonPress}
+          handleButtonRelease={handleButtonRelease}
+        />
       )}
 
       {(currentScreen === 'landed' || currentScreen === 'crashed') && finalLanderState && (
