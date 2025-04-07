@@ -30,7 +30,7 @@ const EndScreen: React.FC<EndScreenProps> = ({ status, lander, onRestart }) => {
     // Add specific reasons for crash
     if (velocity >= MAX_SAFE_LANDING_SPEED) scoreText += " - Too fast!";
     else if (angleDegrees > MAX_SAFE_LANDING_ANGLE_DEG) scoreText += " - Bad angle!";
-    else scoreText += " - Missed LZ?";
+    else scoreText += " - Missed the landing zone?";
   }
 
   return (
