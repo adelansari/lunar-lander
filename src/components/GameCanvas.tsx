@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { LanderState, Point, LandingZone, GameStatus, GameInputState } from '../types';
 import {
-    INITIAL_LANDER_STATE, GRAVITY, THRUST_FORCE, ROTATION_THRUST,
+    GRAVITY, THRUST_FORCE, ROTATION_THRUST,
     FUEL_CONSUMPTION_RATE, TERRAIN_SEGMENTS, LANDING_ZONE_WIDTH,
     LANDING_ZONE_HEIGHT_OFFSET, MAX_SAFE_LANDING_SPEED, MAX_SAFE_LANDING_ANGLE_DEG,
     LANDER_WIDTH, LANDER_HEIGHT
@@ -25,12 +25,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const [terrain, setTerrain] = useState<Point[]>([]);
   const [landingZone, setLandingZone] = useState<LandingZone | null>(null);
   const gameOverHandledRef = useRef<boolean>(false);
-
   const animationFrameIdRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(0);
-  const beaconPulseRef = useRef<number>(0); // Used for LZ pulsing effect
+  const beaconPulseRef = useRef<number>(0);
 
-  // --- Terrain Generation ---
   const generateTerrain = useCallback((canvasWidth: number, canvasHeight: number) => {
     const newTerrain: Point[] = []; const segmentWidth = canvasWidth / TERRAIN_SEGMENTS; let currentHeight = canvasHeight * 0.7;
     for (let i = 0; i <= TERRAIN_SEGMENTS; i++) { const x = i * segmentWidth; let y = currentHeight; if (i > 0 && i < TERRAIN_SEGMENTS) { const heightChange = canvasHeight * 0.1; y += (Math.random() * heightChange * 2 - heightChange); y = Math.max(canvasHeight * 0.5, Math.min(canvasHeight * 0.9, y)); } newTerrain.push({ x, y }); currentHeight = y; }
@@ -40,13 +38,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     setTerrain(newTerrain); setLandingZone({ x: lzX, y: lzPlatformY, width: LANDING_ZONE_WIDTH });
   }, []);
 
-  // --- Lander Initialization ---
   const initializeLander = useCallback((canvasWidth: number) => {
     const landerData: LanderState = { width: LANDER_WIDTH, height: LANDER_HEIGHT, angle: 0, velocityX: 0, velocityY: 0, fuel: 100, thrusting: false, landed: false, crashed: false, x: canvasWidth / 2, y: 50, };
     setLander(landerData); gameOverHandledRef.current = false;
   }, []);
 
-  // --- Canvas Setup & Resize ---
   const setupCanvas = useCallback(() => {
     const canvas = canvasRef.current; if (!canvas) return; ctxRef.current = canvas.getContext('2d');
     const { innerWidth, innerHeight } = window; canvas.width = innerWidth; canvas.height = innerHeight;
@@ -59,7 +55,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   }, [setupCanvas]);
 
 
-  // --- Physics Update ---
   const update = useCallback((delta: number) => {
     if (!lander || gameOverHandledRef.current || !inputStateRef.current) return;
     const input = inputStateRef.current; let nextLander = { ...lander }; let rotationSpeed = 0;
@@ -69,70 +64,128 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     if (nextLander.thrusting) { nextLander.fuel = Math.max(0, nextLander.fuel - FUEL_CONSUMPTION_RATE * delta); const angleRad = nextLander.angle; const thrustX = Math.sin(angleRad) * THRUST_FORCE * delta; const thrustY = -Math.cos(angleRad) * THRUST_FORCE * delta; nextLander.velocityX += thrustX; nextLander.velocityY += thrustY; }
     nextLander.velocityY += GRAVITY * delta; nextLander.x += nextLander.velocityX * delta; nextLander.y += nextLander.velocityY * delta;
     const canvasWidth = canvasRef.current?.width ?? window.innerWidth; if (nextLander.x < 0) nextLander.x = canvasWidth; if (nextLander.x > canvasWidth) nextLander.x = 0;
+
     let collisionStatus: GameStatus | null = null;
+    let stateForGameOver = { ...nextLander }; // Capture state before potential modification
+
     if (terrain.length > 1) {
         for (let i = 0; i < terrain.length - 1; i++) {
             const segStart = terrain[i]; const segEnd = terrain[i + 1]; const landerLeft = nextLander.x - nextLander.width / 2; const landerRight = nextLander.x + nextLander.width / 2; const segMinX = Math.min(segStart.x, segEnd.x); const segMaxX = Math.max(segStart.x, segEnd.x); if (landerRight < segMinX || landerLeft > segMaxX) continue;
             let terrainY; if (segEnd.x === segStart.x) terrainY = Math.max(segStart.y, segEnd.y); else { const t = (nextLander.x - segStart.x) / (segEnd.x - segStart.x); const clampedT = Math.max(0, Math.min(1, t)); terrainY = segStart.y + clampedT * (segEnd.y - segStart.y); }
+
             if (nextLander.y + nextLander.height / 2 >= terrainY) {
                 const velocity = Math.sqrt(nextLander.velocityX ** 2 + nextLander.velocityY ** 2); const angleDegrees = Math.abs(radToDeg(nextLander.angle)); const isOverLandingZone = landingZone && nextLander.x >= landingZone.x && nextLander.x <= landingZone.x + landingZone.width && Math.abs(terrainY - (landingZone.y + LANDING_ZONE_HEIGHT_OFFSET)) < 10;
-                if (isOverLandingZone && velocity < MAX_SAFE_LANDING_SPEED && angleDegrees < MAX_SAFE_LANDING_ANGLE_DEG) { collisionStatus = 'landed'; nextLander.y = terrainY - nextLander.height / 2; nextLander.velocityX = 0; nextLander.velocityY = 0; nextLander.angle = 0; } else { collisionStatus = 'crashed'; }
-                nextLander.landed = collisionStatus === 'landed'; nextLander.crashed = collisionStatus === 'crashed'; break;
+                stateForGameOver = { ...nextLander }; // Capture state *at impact*
+
+                if (isOverLandingZone && velocity < MAX_SAFE_LANDING_SPEED && angleDegrees < MAX_SAFE_LANDING_ANGLE_DEG) {
+                    collisionStatus = 'landed';
+                    // Modify nextLander for post-landing state (zero velocity etc.)
+                    nextLander.y = terrainY - nextLander.height / 2; nextLander.velocityX = 0; nextLander.velocityY = 0; nextLander.angle = 0;
+                } else {
+                    collisionStatus = 'crashed';
+                    // Keep impact velocity/angle in nextLander for crash drawing
+                }
+                nextLander.landed = collisionStatus === 'landed';
+                nextLander.crashed = collisionStatus === 'crashed';
+                break; // Collision processed
             }
         }
     }
-    setLander(nextLander); provideStateForUI(nextLander, terrain);
-    if (collisionStatus && !gameOverHandledRef.current) { gameOverHandledRef.current = true; onGameOver(collisionStatus, nextLander); }
+    // Update React state with the potentially modified nextLander (e.g., zeroed velocity)
+    setLander(nextLander);
+    provideStateForUI(nextLander, terrain); // Update UI state
+
+    // Handle game over *after* state update, passing the captured impact state
+    if (collisionStatus && !gameOverHandledRef.current) {
+        gameOverHandledRef.current = true;
+        onGameOver(collisionStatus, stateForGameOver); // Pass captured state
+    }
   }, [lander, terrain, landingZone, inputStateRef, onGameOver, provideStateForUI]);
 
 
-  // --- Drawing Logic ---
   const draw = useCallback(() => {
     const ctx = ctxRef.current; const canvas = canvasRef.current;
-    if (!ctx || !canvas || !lander) return; // Ensure everything is ready
+    if (!ctx || !canvas || !lander ) return;
     const { width: canvasWidth, height: canvasHeight } = canvas;
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
     // --- Draw Terrain ---
-    if (terrain.length > 1) {
-      ctx.save(); ctx.beginPath(); ctx.moveTo(0, canvasHeight);
-      terrain.forEach(p => ctx.lineTo(p.x, p.y)); ctx.lineTo(canvasWidth, canvasHeight); ctx.closePath();
-      ctx.fillStyle = '#4a4e69'; ctx.fill(); ctx.strokeStyle = '#3a3e59'; ctx.lineWidth = 1; ctx.stroke();
-      ctx.restore();
-    }
+    if (terrain.length > 1) { ctx.save(); ctx.beginPath(); ctx.moveTo(0, canvasHeight); terrain.forEach(p => ctx.lineTo(p.x, p.y)); ctx.lineTo(canvasWidth, canvasHeight); ctx.closePath(); ctx.fillStyle = '#4a4e69'; ctx.fill(); ctx.strokeStyle = '#3a3e59'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore(); }
 
     // --- Draw Landing Zone ---
     if (landingZone) {
         ctx.save();
-        const lz = landingZone;
-        const landingCenterX = lz.x + lz.width / 2;
-        // Use the platform's Y for drawing elements on it
-        const landingCenterY = lz.y;
-        // Use the terrain's Y for placing the base rect
-        const lzTerrainY = landingCenterY + LANDING_ZONE_HEIGHT_OFFSET;
+        const lz = landingZone; const landingCenterX = lz.x + lz.width / 2;
+        const landingCenterY = lz.y; const lzTerrainY = landingCenterY + LANDING_ZONE_HEIGHT_OFFSET;
 
-        // 1. Draw Solid Platform Base (like original fillRect)
-        ctx.fillStyle = '#00ff64'; // Green platform color
-        ctx.fillRect(lz.x, lzTerrainY, lz.width, 5); // Draw on the terrain line
+        // Slow down pulse by using a smaller increment
+        beaconPulseRef.current = (beaconPulseRef.current + 0.02) % (Math.PI * 2); // Slower pulse (was 0.05)
+        const beaconPulse = beaconPulseRef.current;
 
-        // 2. Draw Pulsing Beacon Circle (like original arc)
-        beaconPulseRef.current = (beaconPulseRef.current + 0.05) % (Math.PI * 2); // Update pulse
-        const beaconPulseSize = 3 + Math.sin(beaconPulseRef.current) * 2; // Size pulse 1-5
-        const beaconPulseOpacity = 0.5 + Math.sin(beaconPulseRef.current) * 0.2; // Opacity pulse 0.3-0.7
-        ctx.beginPath();
-        ctx.arc(landingCenterX, landingCenterY, beaconPulseSize, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0, 255, 100, ${beaconPulseOpacity})`; // Pulsing green/opacity
-        ctx.fill();
-
-        // 3. Draw Vertical Guideline (like original lineTo)
-        ctx.strokeStyle = 'rgba(0, 255, 100, 0.3)'; // Faint green line
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(landingCenterX, landingCenterY); // Start at platform center Y
-        ctx.lineTo(landingCenterX, landingCenterY - 50); // Extend upwards
-        ctx.stroke();
-
+        // 1. Glow effect
+        ctx.beginPath(); ctx.moveTo(lz.x, landingCenterY); ctx.lineTo(lz.x + lz.width, landingCenterY);
+        ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(0, 255, 100, 0.5)'; ctx.stroke();
+        // 2. Platform line
+        ctx.beginPath(); ctx.moveTo(lz.x, landingCenterY); ctx.lineTo(lz.x + lz.width, landingCenterY);
+        ctx.lineWidth = 2; ctx.strokeStyle = '#00ff64'; ctx.stroke();
+        // 3. Stripes
+        ctx.strokeStyle = '#00ff64'; ctx.lineWidth = 3;
+        for (let x = lz.x; x < lz.x + lz.width; x += 15) { ctx.beginPath(); ctx.moveTo(x, landingCenterY); ctx.lineTo(x + 8, landingCenterY); ctx.stroke(); }
+        // 4. Pulse beacon arc
+        const pulseSize = 8 + Math.sin(beaconPulse) * 5;
+        ctx.beginPath(); ctx.arc(landingCenterX, landingCenterY - 8, pulseSize, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 255, 100, 0.3)'; ctx.fill();
+        // 5. Beacon center
+        ctx.beginPath(); ctx.arc(landingCenterX, landingCenterY - 8, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#00ff64'; ctx.fill();
+        // 6. Beacon light beam
+        const beamHeight = 30 + Math.sin(beaconPulse * 2) * 10; // Pulse height too
+        const gradient = ctx.createLinearGradient(landingCenterX, landingCenterY - 8, landingCenterX, landingCenterY - 8 - beamHeight);
+        gradient.addColorStop(0, 'rgba(0, 255, 100, 0.5)'); gradient.addColorStop(1, 'rgba(0, 255, 100, 0)');
+        ctx.fillStyle = gradient; ctx.fillRect(landingCenterX - 3, landingCenterY - 8 - beamHeight, 6, beamHeight);
+        // 7. Landed flag
+        if (Math.abs(lander.y - landingCenterY) < 200) {
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(landingCenterX, landingCenterY - 25, 2, -15);
+            ctx.fillStyle = '#00ff64'; ctx.fillRect(landingCenterX + 2, landingCenterY - 40, 12, 10);
+            ctx.fillStyle = '#000000'; ctx.font = 'bold 8px Arial'; ctx.fillText('LZ', landingCenterX + 4, landingCenterY - 32);
+        }
         ctx.restore();
+
+        // --- Draw Distance Indicator (Above Landing Zone when far) ---
+        // Condition to show indicator (same as before, based on original)
+        const showIndicator = Math.abs(lander.x - landingCenterX) > 200 || lander.y < landingCenterY - 300;
+        if (showIndicator) {
+            ctx.save();
+            const indicatorYOffset = -70; // How far above the LZ center to draw
+            const indicatorX = landingCenterX;
+            const indicatorY = landingCenterY + indicatorYOffset;
+            const arrowSize = 15;
+
+            // Draw Arrow Shape (pointing down towards LZ)
+            ctx.beginPath();
+            ctx.moveTo(indicatorX - arrowSize / 2, indicatorY); // Bottom left base
+            ctx.lineTo(indicatorX + arrowSize / 2, indicatorY); // Bottom right base
+            ctx.lineTo(indicatorX, indicatorY + arrowSize); // Tip pointing down
+            ctx.closePath();
+            ctx.fillStyle = '#00ff64'; // Green fill
+            ctx.fill();
+
+            // Draw Text ("LAND HERE" and distance)
+            ctx.font = '12px Orbitron';
+            ctx.fillStyle = '#00ff64';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom'; // Place text below the arrow base
+
+            const distance = Math.floor(Math.sqrt(
+                Math.pow(lander.x - landingCenterX, 2) +
+                Math.pow(lander.y - landingCenterY, 2)
+            ));
+            // Position text below the arrow base
+            ctx.fillText(`LAND HERE: ${distance}m`, indicatorX, indicatorY - 5);
+
+            ctx.restore();
+        }
+
     }
 
     // --- Draw Lander ---
@@ -142,80 +195,24 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     ctx.strokeStyle = '#999999'; ctx.lineWidth = 2; const legLength = lander.height * 0.4, legSpread = lander.width * 0.4; // Legs
     ctx.beginPath(); ctx.moveTo(-lander.width / 2, lander.height / 2); ctx.lineTo(-lander.width / 2 - legSpread, lander.height / 2 + legLength); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(lander.width / 2, lander.height / 2); ctx.lineTo(lander.width / 2 + legSpread, lander.height / 2 + legLength); ctx.stroke();
-    if (lander.thrusting) { /* Flame */ ctx.fillStyle = `rgba(255, ${100 + Math.random() * 100}, 0, ${0.7 + Math.random() * 0.3})`; ctx.beginPath(); const flameLength = lander.height * 0.5 + Math.random() * 10; ctx.moveTo(-lander.width / 4, lander.height / 2); ctx.lineTo(lander.width / 4, lander.height / 2); ctx.lineTo(0, lander.height / 2 + flameLength); ctx.closePath(); ctx.fill(); }
+    if (lander.thrusting) { /* Flame */ const flameOpacity = 0.7 + Math.random() * 0.3; const flameColorFactor = 100 + Math.random() * 100; ctx.fillStyle = `rgba(255, ${flameColorFactor}, 0, ${flameOpacity})`; ctx.beginPath(); const flameLength = lander.height * 0.5 + Math.random() * 10; ctx.moveTo(-lander.width / 4, lander.height / 2); ctx.lineTo(lander.width / 4, lander.height / 2); ctx.lineTo(0, lander.height / 2 + flameLength); ctx.closePath(); ctx.fill(); }
     if (lander.crashed) { /* Crash */ ctx.fillStyle = 'rgba(255, 0, 0, 0.7)'; ctx.beginPath(); ctx.arc(0, 0, lander.width * (1 + Math.random() * 0.5), 0, Math.PI * 2); ctx.fill(); }
     ctx.restore();
 
-    // --- Draw Altitude Marker (NEW) ---
+    // --- Draw Altitude Marker ---
     if (terrain.length > 1) {
-        let terrainYBelow = canvasHeight; // Default to bottom
-        for (let i = 0; i < terrain.length - 1; i++) {
-            const segStart = terrain[i]; const segEnd = terrain[i + 1];
-            const minX = Math.min(segStart.x, segEnd.x); const maxX = Math.max(segStart.x, segEnd.x);
-            if (lander.x >= minX && lander.x <= maxX) {
-                if (segEnd.x === segStart.x) terrainYBelow = Math.max(segStart.y, segEnd.y);
-                else { const t = (lander.x - segStart.x) / (segEnd.x - segStart.x); const clampedT = Math.max(0, Math.min(1, t)); terrainYBelow = segStart.y + clampedT * (segEnd.y - segStart.y); }
-                break;
-            }
-        }
-        // Draw dashed line from lander bottom to terrain below
-        ctx.save();
-        ctx.beginPath();
-        ctx.setLineDash([4, 4]); // 4 pixels on, 4 pixels off
-        ctx.moveTo(lander.x, lander.y + lander.height / 2); // Bottom center of lander
-        ctx.lineTo(lander.x, terrainYBelow); // Point on terrain directly below
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'; // Faint white dashed line
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        ctx.restore(); // Restore line dash setting
-    }
-
-
-    // --- Draw Distance Indicator ---
-    if (landingZone) {
-        const lz = landingZone;
-        const landingCenterX = lz.x + lz.width / 2;
-        const landingCenterY = lz.y; // Use platform Y for distance calculation target
-
-        // Condition from original HTML
-        const showIndicator = Math.abs(lander.x - landingCenterX) > 200 || lander.y < landingCenterY - 300;
-
-        if (showIndicator) {
-            ctx.save();
-            // Arrow position at edge of screen
-            const arrowX = lander.x > landingCenterX ? canvasWidth - 20 : 20;
-            const arrowDir = lander.x > landingCenterX ? -1 : 1; // Direction arrow points (-1 left, 1 right)
-            const arrowY = 50; // Fixed Y position near top
-
-            // Draw Arrow Shape
-            ctx.beginPath();
-            ctx.moveTo(arrowX, arrowY - 10); // Top point
-            ctx.lineTo(arrowX + (arrowDir * 15), arrowY); // Middle point (tip)
-            ctx.lineTo(arrowX, arrowY + 10); // Bottom point
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#00ff64';
-            ctx.stroke();
-
-            // Draw Text ("LAND HERE" and distance)
-            ctx.font = '12px Orbitron';
-            ctx.fillStyle = '#00ff64';
-            ctx.textAlign = arrowDir === 1 ? 'left' : 'right';
-            const textX = arrowX + (arrowDir * (arrowDir === 1 ? 20 : -20));
-            ctx.fillText('LAND HERE', textX, arrowY);
-
-            const distance = Math.floor(Math.sqrt(
-                Math.pow(lander.x - landingCenterX, 2) +
-                Math.pow(lander.y - landingCenterY, 2)
-            ));
-            ctx.fillText(`${distance}m`, textX, arrowY + 20); // Distance below "LAND HERE"
-
-            ctx.restore();
-        }
+        let terrainYBelow = canvasHeight;
+        for (let i = 0; i < terrain.length - 1; i++) { /* Find terrainYBelow */ const segStart = terrain[i]; const segEnd = terrain[i + 1]; const minX = Math.min(segStart.x, segEnd.x); const maxX = Math.max(segStart.x, segEnd.x); if (lander.x >= minX && lander.x <= maxX) { if (segEnd.x === segStart.x) terrainYBelow = Math.max(segStart.y, segEnd.y); else { const t = (lander.x - segStart.x) / (segEnd.x - segStart.x); const clampedT = Math.max(0, Math.min(1, t)); terrainYBelow = segStart.y + clampedT * (segEnd.y - segStart.y); } break; } }
+        ctx.save(); ctx.beginPath(); ctx.setLineDash([4, 4]);
+        ctx.moveTo(lander.x, lander.y + lander.height / 2); ctx.lineTo(lander.x, terrainYBelow);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'; ctx.lineWidth = 1;
+        ctx.stroke(); ctx.restore();
     }
 
   }, [lander, terrain, landingZone]);
 
 
+  // --- Game Loop ---
   useEffect(() => {
     let isActive = true;
     const loop = (timestamp: number) => {
