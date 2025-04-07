@@ -34,7 +34,7 @@ export interface GameInputState {
     thrust: boolean;
 }
 
-// Structure for storing game attempt history
+// Storing game attempt history
 export interface GameAttempt {
     id: number; // Use timestamp as a unique ID
     timestamp: number; // Milliseconds since epoch
@@ -42,4 +42,10 @@ export interface GameAttempt {
     velocity: number;
     angle: number;
     fuel: number;
-  }
+}
+
+// Storing best landing times
+export interface BestTime {
+    timestamp: number; // When the record was set
+    time: number; // Elapsed time in milliseconds
+}
