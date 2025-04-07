@@ -17,7 +17,7 @@ export const INITIAL_LANDER_STATE: Omit<LanderState, 'x' | 'y'> = {
 };
 
 // Physics
-export const GRAVITY = 0.0015;
+export const GRAVITY = 0.001;
 export const THRUST_FORCE = 0.05;
 export const ROTATION_THRUST = 0.08; // Radians per update cycle
 export const MAX_SAFE_LANDING_SPEED = 5; // m/s
