@@ -331,6 +331,48 @@ canvas#gameCanvas {
     50% { opacity: 0.8; transform: scale(1); }
 }
 
+/* History Table Styles */
+.history-section {
+    margin-top: 2rem;
+    width: 100%;
+    max-width: 600px; /* Limit width */
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.3); /* Slightly different background */
+    border-radius: 8px;
+    border: 1px solid var(--history-table-border);
+}
+.history-section h3 {
+    margin-bottom: 1rem;
+    text-align: center;
+    color: var(--secondary-color);
+    font-size: 1.2rem;
+}
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+.history-table th, .history-table td {
+    border: 1px solid var(--history-table-border);
+    padding: 0.5rem 0.75rem;
+    text-align: center;
+}
+.history-table th {
+    background-color: rgba(255, 255, 255, 0.1);
+    font-weight: bold;
+}
+.history-table td {
+    background-color: rgba(0, 0, 0, 0.2);
+}
+.history-table .success-text { /* Style for 'Landed' status */
+    color: var(--success-color);
+    font-weight: bold;
+}
+.history-table .crash-text { /* Style for 'Crashed' status */
+    color: var(--danger-color);
+    font-weight: bold;
+}
+
 /* Media Queries */
 @media (max-width: 768px) {
     .title { font-size: 2rem; }

@@ -33,3 +33,13 @@ export interface GameInputState {
     right: boolean;
     thrust: boolean;
 }
+
+// Structure for storing game attempt history
+export interface GameAttempt {
+    id: number; // Use timestamp as a unique ID
+    timestamp: number; // Milliseconds since epoch
+    status: 'landed' | 'crashed';
+    velocity: number;
+    angle: number;
+    fuel: number;
+  }
