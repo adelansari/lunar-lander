@@ -21,7 +21,7 @@ export const GRAVITY = 0.01;
 export const THRUST_FORCE = 0.15;
 export const ROTATION_THRUST = 0.08; // Radians per update cycle
 export const MAX_SAFE_LANDING_SPEED = 5; // m/s
-export const MAX_SAFE_LANDING_ANGLE_DEG = 10; // degrees
+export const MAX_SAFE_LANDING_ANGLE_DEG = 15; // degrees
 export const FUEL_CONSUMPTION_RATE = 0.1; // fuel units per update cycle
 
 // Terrain & Landing Zone
